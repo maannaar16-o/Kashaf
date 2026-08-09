@@ -1,0 +1,62 @@
+{
+ "USERLAYER_K2": {
+  "file": "k2_userlayer_pack.json",
+  "sha256": "8927e5f7eb336116b1762eda4c3ba4724e984767fdbc1a79932b73f3d68880d7",
+  "bytes": 105737
+ },
+ "CONTENT_K2": {
+  "file": "k2_contentpack.json",
+  "sha256": "2b3db06c25525b6a6fd074bd6d777e196c8528bf7b8e9ae2a7bc0eb0fd699d26",
+  "bytes": 84996
+ },
+ "SECTIONS_K3": {
+  "file": "skill_sections.json",
+  "sha256": "c85fb62b63c2666c4a79aa7e57c3b2ca0655b8a7c9cd716446302138f1cf288e",
+  "bytes": 9814
+ },
+ "THREE_K3": {
+  "file": "three_texts.json",
+  "sha256": "d6eb5c864000b5b0dc7024b8790e2fbfb9cfc228567c025f848c1e866a9200a2",
+  "bytes": 3854
+ },
+ "CIRCLE_K3": {
+  "file": "circle_map_v2.json",
+  "sha256": "46efcf73cd28c20dceb107ba20c4472edd145ba06cd264fc056dd68b1b5c104e",
+  "bytes": 3148
+ },
+ "BANNER_K3": {
+  "file": "k3_banner.json",
+  "sha256": "54908df1fdfcbfe7dfde34955ddf12dd28293e1ba0be3a4af2d513be70dd58c9",
+  "bytes": 185
+ },
+ "TEXTLAYER_K3": {
+  "file": "k3_textlayer.json",
+  "sha256": "2842712cf670a8e6a2c3716cf8e0603201246795e7db26cc54f6549b268e9e29",
+  "bytes": 11948
+ },
+ "G5_K3": {
+  "file": "k3_g5.json",
+  "sha256": "f206d111e35723f14bfe0b2ce84130350804585b7d22071ae0b25d4f33eb494d",
+  "bytes": 609
+ },
+ "PUR_K2": {
+  "file": "k2_pur.json",
+  "sha256": "823d10ddb59d0f1a23ed9511b2dd4b5539358dc31aa2a54754c04a856794b117",
+  "bytes": 18170
+ },
+ "INTENSITY_K2": {
+  "file": "k2_intensity.json",
+  "sha256": "2afdc2ff11c3f09372bf72774be93214eb619df037067ab3f22e4aa0b5c8d97e",
+  "bytes": 27478
+ },
+ "LOOKALIKE_K2": {
+  "file": "k2_lookalike.json",
+  "sha256": "2e5e89486d41d5a34bab2e006fbaa0a4caf11cc33b28ec552f7bc42dd9b4d684",
+  "bytes": 3402
+ },
+ "LOCKREG_K2": {
+  "file": "k2_lock_registry.json",
+  "sha256": "ad50b64f48ebc5d309873b3535f56aa9f9c96369cf729e840c5a37a440d947b6",
+  "bytes": 943
+ }
+}

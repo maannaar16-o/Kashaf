@@ -1,0 +1,196 @@
+{
+ "SYN-01": {
+  "sp": {
+   "EP": 62,
+   "IR": 38,
+   "BI": 78,
+   "CF": 44,
+   "ST": 74
+  },
+  "cells": [
+   "CPL-IR.BI-WS",
+   "CPL-IR.CF-WW",
+   "CPL-BI.CF-SW",
+   "CPL-IR.ST-WS",
+   "CPL-BI.ST-SS",
+   "CPL-CF.ST-WS"
+  ],
+  "patterns": [
+   "HF-01",
+   "HF-02:BI"
+  ],
+  "question": "RQ-01",
+  "state": "composite",
+  "high": [
+   "BI",
+   "ST"
+  ],
+  "low_trust": false,
+  "entries": [
+   "C-03",
+   "state:composite",
+   "C-10",
+   "T-02",
+   "T-08",
+   "C-15",
+   "T-01",
+   "C-08",
+   "T-04",
+   "T-10",
+   "C-04",
+   "C-13",
+   "C-14",
+   "RQ-01"
+  ],
+  "text_sha256": "03693ed20bfbf3d7"
+ },
+ "SYN-02": {
+  "sp": {
+   "EP": 34,
+   "IR": 30,
+   "BI": 76,
+   "CF": 58,
+   "ST": 46
+  },
+  "cells": [
+   "CPL-IR.BI-WS",
+   "CPL-IR.ST-WW",
+   "CPL-BI.ST-SW",
+   "CPL-EP.IR-WW"
+  ],
+  "patterns": [
+   "HF-04"
+  ],
+  "question": "RQ-04",
+  "state": "composite",
+  "high": [
+   "BI"
+  ],
+  "low_trust": true,
+  "entries": [
+   "C-03",
+   "C-12",
+   "state:composite",
+   "C-10",
+   "T-08",
+   "C-07",
+   "T-02",
+   "C-04",
+   "C-13",
+   "C-14",
+   "RQ-04"
+  ],
+  "text_sha256": "f3408b93f89601c7"
+ },
+ "SYN-03": {
+  "sp": {
+   "EP": 88,
+   "IR": 82,
+   "BI": 79,
+   "CF": 74,
+   "ST": 91
+  },
+  "cells": [
+   "CPL-IR.BI-SS",
+   "CPL-IR.CF-SS",
+   "CPL-BI.CF-SS",
+   "CPL-IR.ST-SS",
+   "CPL-BI.ST-SS",
+   "CPL-CF.ST-SS",
+   "CPL-EP.IR-SS"
+  ],
+  "patterns": [],
+  "question": null,
+  "state": "strong",
+  "high": [
+   "IR",
+   "BI",
+   "CF",
+   "ST"
+  ],
+  "low_trust": false,
+  "entries": [
+   "C-03",
+   "state:strong",
+   "C-07",
+   "T-01"
+  ],
+  "text_sha256": "2243ceb037d35393"
+ },
+ "SYN-04": {
+  "sp": {
+   "EP": 28,
+   "IR": 33,
+   "BI": 41,
+   "CF": 22,
+   "ST": 37
+  },
+  "cells": [
+   "CPL-IR.BI-WW",
+   "CPL-IR.CF-WW",
+   "CPL-BI.CF-WW",
+   "CPL-IR.ST-WW",
+   "CPL-BI.ST-WW",
+   "CPL-CF.ST-WW",
+   "CPL-EP.IR-WW"
+  ],
+  "patterns": [
+   "HF-01",
+   "HF-04"
+  ],
+  "question": "RQ-01",
+  "state": "weak",
+  "high": [],
+  "low_trust": true,
+  "entries": [
+   "C-03",
+   "C-12",
+   "state:weak",
+   "C-10",
+   "T-07",
+   "T-08",
+   "C-15",
+   "T-09",
+   "C-07",
+   "C-04",
+   "C-13",
+   "C-14",
+   "RQ-01"
+  ],
+  "text_sha256": "d2c49c5205f91b2a"
+ },
+ "SYN-05": {
+  "sp": {
+   "EP": 55,
+   "IR": -7.6,
+   "BI": 52,
+   "CF": 61,
+   "ST": 48
+  },
+  "cells": [],
+  "patterns": [],
+  "question": null,
+  "state": null,
+  "high": [],
+  "low_trust": false,
+  "entries": [],
+  "text_sha256": "01ba4719c80b6fe9"
+ },
+ "SYN-06": {
+  "sp": {
+   "EP": 57,
+   "IR": 63,
+   "BI": 55,
+   "CF": 68,
+   "ST": 51
+  },
+  "cells": [],
+  "patterns": [],
+  "question": null,
+  "state": null,
+  "high": [],
+  "low_trust": false,
+  "entries": [],
+  "text_sha256": "01ba4719c80b6fe9"
+ }
+}
