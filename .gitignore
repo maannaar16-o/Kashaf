@@ -2,3 +2,4 @@
 packs.js
 k3_contentpack.py
 __pycache__/
+.claude/settings.local.json
