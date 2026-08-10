@@ -287,6 +287,12 @@ KASHAF_SHELL = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="الكشاف — استبيان الرواحل: قراءة بنيوية لعدساتك المعرفية وقدراتك التنظيمية، بالكامل داخل متصفحك.">
 <title>الكشاف — استبيان الرواحل</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1417">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!--
 __MANIFEST__
 -->
@@ -321,8 +327,62 @@ window.KashafData = __DATA__;
 <script>
 __APP__
 </script>
+
+<script>
+"use strict";
+// تسجيل عامل الخدمة — التثبيت والعمل بلا شبكة (DEC-251).
+// لا يمسّ قفل صفر-الشبكة: القفل يمنع اتصالات الصفحة، والعامل يخدم ملفات التطبيق نفسها من التخزين.
+(function(){
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(function(){});
+})();
+</script>
 </body>
 </html>
+"""
+
+MANIFEST_JSON = {
+    "name": "الكشاف — استبيان الرواحل",
+    "short_name": "الكشاف",
+    "description": "قراءة بنيوية لعدساتك المعرفية وقدراتك التنظيمية — بالكامل على جهازك.",
+    "lang": "ar",
+    "dir": "rtl",
+    "start_url": "./kashaf.html",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#0d1417",
+    "theme_color": "#0d1417",
+    "icons": [
+        {"src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+        {"src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+        {"src": "assets/icons/icon-512-maskable.png", "sizes": "512x512",
+         "type": "image/png", "purpose": "maskable"},
+    ],
+}
+
+SW_TEMPLATE = """\
+"use strict";
+/* sw.js — مولَّد بـ build_site.py (DEC-251) — لا يُحرَّر يدوياً.
+ * تخزين ذرّي مُصدَّر ببصمة الموقع: إما النسخة الجديدة كاملة أو القديمة كاملة.
+ * النطاق: ملفات هذا الموقع نفسها حصراً — لا يمرّر ولا يخزّن أي أصل خارجي. */
+const CACHE = "kashaf-__SITE_VER__";
+const ASSETS = __ASSETS__;
+
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener("activate", (e) => {
+  e.waitUntil(caches.keys()
+    .then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim()));
+});
+
+self.addEventListener("fetch", (e) => {
+  const url = new URL(e.request.url);
+  if (e.request.method !== "GET" || url.origin !== location.origin) return;
+  e.respondWith(
+    caches.match(e.request, { ignoreSearch: true }).then((r) => r || fetch(e.request)));
+});
 """
 
 
@@ -589,19 +649,60 @@ def main():
     check_anchors(pages)
     for name, html in pages.items():
         lint(name, html)
+        # طبقة التطبيق (DEC-251): كل صفحة تحمل بيان التطبيق وتسجيل عامل الخدمة
+        if 'rel="manifest"' not in html:
+            die(f"{name}: بلا رابط بيان التطبيق")
+        if 'serviceWorker" in navigator' not in html:
+            die(f"{name}: بلا تسجيل عامل الخدمة")
+
+    # أيقونات التطبيق — موجودة وغير فارغة
+    icons_src = os.path.join(SITE, "static", "icons")
+    icon_names = ["icon-192.png", "icon-512.png", "icon-512-maskable.png"]
+    for ic in icon_names:
+        p = os.path.join(icons_src, ic)
+        if not os.path.isfile(p) or os.path.getsize(p) < 1000:
+            die(f"أيقونة غائبة أو فارغة: {ic}")
 
     # الكتابة — بعد اجتياز كل شيء فقط
     if os.path.isdir(DOCS):
         shutil.rmtree(DOCS)
-    os.makedirs(os.path.join(DOCS, "assets"))
+    os.makedirs(os.path.join(DOCS, "assets", "icons"))
     open(os.path.join(DOCS, ".nojekyll"), "w").close()
     shutil.copyfile(os.path.join(SITE, "static", "site.css"),
                     os.path.join(DOCS, "assets", "site.css"))
+    for ic in icon_names:
+        shutil.copyfile(os.path.join(icons_src, ic),
+                        os.path.join(DOCS, "assets", "icons", ic))
     for name, html in pages.items():
         with open(os.path.join(DOCS, name), "w", encoding="utf-8") as f:
             f.write(html)
+    with open(os.path.join(DOCS, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump(MANIFEST_JSON, f, ensure_ascii=False, indent=1)
 
-    print(f"\n✅ docs/ — {len(pages)} صفحات · بصمة البناء {build_hash}")
+    # عامل الخدمة — قائمة التخزين تُشتق من الناتج الفعلي (لا تُكتب يدوياً)
+    assets = ["./"]
+    for root_dir, _dirs, files in os.walk(DOCS):
+        for fn in sorted(files):
+            if fn in ("sw.js", ".nojekyll"):
+                continue
+            rel = os.path.relpath(os.path.join(root_dir, fn), DOCS).replace(os.sep, "/")
+            assets.append("./" + rel)
+    site_ver = hashlib.sha256(("".join(
+        sha256(open(os.path.join(DOCS, a[2:]), "rb").read()) for a in sorted(assets) if a != "./"
+    )).encode()).hexdigest()[:16]
+    sw = SW_TEMPLATE.replace("__SITE_VER__", site_ver).replace(
+        "__ASSETS__", json.dumps(sorted(assets), ensure_ascii=False))
+    with open(os.path.join(DOCS, "sw.js"), "w", encoding="utf-8") as f:
+        f.write(sw)
+    # توكيد الاكتمال: كل ملف ناتج (عدا العامل نفسه) مذكور في قائمة التخزين
+    listed = set(json.loads(re.search(r"const ASSETS = (\[.*?\]);", sw, re.S).group(1)))
+    for a in assets:
+        if a not in listed:
+            die(f"sw.js: ملف ناقص من قائمة التخزين: {a}")
+    if site_ver not in sw:
+        die("sw.js: بصمة الموقع غائبة")
+
+    print(f"\n✅ docs/ — {len(pages)} صفحات · بصمة البناء {build_hash} · بصمة الموقع (SW) {site_ver}")
     for name in sorted(pages):
         p = os.path.join(DOCS, name)
         b = os.path.getsize(p)
