@@ -278,6 +278,17 @@ body{margin:0;background:#0d1417;color:#EDEAE3;font-family:system-ui,'Segoe UI',
 .name-input{display:block;width:100%;box-sizing:border-box;margin:8px 0 18px;padding:12px;background:#141c20;border:1px solid #3a4a52;border-radius:10px;color:#EDEAE3;font-size:16px;font-family:inherit}
 .warnbox{border-right:3px solid #E8A33D;background:#202b30;color:#ffb86b;margin:16px;padding:10px 14px;border-radius:0 8px 8px 0}
 .q-note{color:#7d8d93;font-size:.85em}
+.sec-h{font-size:18px;color:#4FD1C5;margin:26px 0 6px;border-bottom:1px solid #3a4a52;padding-bottom:7px}
+.home-list{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.profile-card,.arch-item{display:flex;flex-direction:column;gap:2px;text-align:right;width:100%;padding:14px 16px;background:#141c20;border:1px solid #3a4a52;border-radius:12px;color:#EDEAE3;cursor:pointer;font-family:inherit;font-size:15px}
+.profile-card:hover,.arch-item:hover{border-color:#4FD1C5}
+.p-alias{font-weight:700;font-size:16px}
+.p-state{color:#9fb0b6;font-size:13px}
+.newp{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0}
+.newp .name-input{flex:1 1 220px;margin:0}
+.toprow{margin:4px 0 0}
+.faintline{color:#7d8d93;font-size:13px;margin:2px 0 10px}
+.danger{border-color:#a04030;color:#e08070}
 """
 
 KASHAF_SHELL = """<!doctype html>
@@ -654,6 +665,15 @@ def main():
             die(f"{name}: بلا رابط بيان التطبيق")
         if 'serviceWorker" in navigator' not in html:
             die(f"{name}: بلا تسجيل عامل الخدمة")
+
+    # المرحلة ② (DEC-252): مخزن الجهاز وقيد DEC-244 البنيوي حاضران في التطبيق
+    app_src = read("site", "app", "app.js")
+    if "indexedDB" not in app_src:
+        die("app.js: طبقة IndexedDB غائبة")
+    if "قراءة الفارق بين قياسين محظورة" not in app_src:
+        die("app.js: لافتة DEC-244 للأرشيف غائبة")
+    if "RAWAHIL-KASHAF-BACKUP-v1" not in app_src:
+        die("app.js: مخطط النسخة الاحتياطية غائب")
 
     # أيقونات التطبيق — موجودة وغير فارغة
     icons_src = os.path.join(SITE, "static", "icons")

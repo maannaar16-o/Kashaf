@@ -1,21 +1,25 @@
 "use strict";
 /*
- * app.js — تطبيق «الكشاف» — تدفق الاستبيان (DEC-035 · الكتل المتداخلة)
- * =====================================================================
- * آلة حالات بلا مكتبات: WELCOME → [لكل كتلة: CHOICE ثم RATE] → NAME → REPORT.
- * React لا يُستدعى إلا عند عرض التقرير (DualReportView تشترطه).
+ * app.js — تطبيق «الكشاف» v2 (DEC-251 · DEC-252)
+ * =================================================
+ * المرحلة ②: ملفات متعددة محلية · أرشيف تقارير · نسخة احتياطية · مشاركة كملف.
+ * التخزين: IndexedDB (مخازن profiles/progress/archive) مع هجرة من مخزن v1.
  *
  * قواعد مختومة منفَّذة هنا:
- *  · المرحلة الثانية تعرض كل جملة مفردة دون إظهار الاختيار السابق (DEC-035)
- *  · التقييم 1–6 بأزرار حصراً — الواجهة هي نقطة إنفاذ المدى
+ *  · تدفق DEC-035: اختيار أ/ب لكل الكتلة ثم تقييم كل جملة مفردة دون إظهار الاختيار
+ *  · التقييم 1–6 بأزرار حصراً — الواجهة نقطة إنفاذ المدى
  *  · نقطة تحويل وحيدة أ/ب → "a"/"b" (زرّا الاختيار)
- *  · إجابات محفوظة ببصمة بناء — تغيّر الأداة يُبطل المحفوظ (درس GAP-Q-01)
+ *  · إجابات موسومة ببصمة بناء — تغيّر الأداة يُبطل المحفوظ (درس GAP-Q-01)
+ *  · الأرشيف يحفظ النص المُسلَّم وكتلة تدقيقه حرفياً ويعرضه وحده —
+ *    لا شاشة تجمع قياسين ولا قراءة لفارق زمني (DEC-244) — قيد بنيوي
+ *  · لا لوحة K1/K4 (DEC-186) · أدوات التحقق الذاتي خارج الشحنة حتى اعتماد عُدّتها
  */
 (function () {
   var D = window.KashafData;
   var EN = window.RawahilEngines;
   var B = window.RawahilBridge;
   var PK = window.RawahilPacks;
+  var DR = window.RawahilDualReport;
 
   // ── الخرائط — K2 من المحرك مباشرة (مصدر الحقيقة الواحد) ──────────────
   var K2_MAP = {};
@@ -28,48 +32,89 @@
   var RAW_MAPS = Object.keys(EN.K2.ITEM_MAP).map(function (k) { return EN.K2.ITEM_MAP[k]; })
     .concat(Object.keys(K3_MAP).map(function (k) { return K3_MAP[k]; }));
 
-  var LS_KEY = "rawahil.kashaf.v1";
+  var LEGACY_KEY = "rawahil.kashaf.v1";
   var root = document.getElementById("app");
 
-  // ── حالة التطبيق ──────────────────────────────────────────────────────
-  var S = { cursor: null, answers: {}, name: "" };
+  // ── IndexedDB — مساعد موعود صغير ─────────────────────────────────────
+  var db = null;
+  function openDb() {
+    return new Promise(function (res, rej) {
+      var r = indexedDB.open("rawahil-kashaf", 1);
+      r.onupgradeneeded = function () {
+        var d = r.result;
+        d.createObjectStore("profiles", { keyPath: "id" });
+        d.createObjectStore("progress", { keyPath: "profileId" });
+        d.createObjectStore("archive", { keyPath: "id" })
+          .createIndex("byProfile", "profileId", { unique: false });
+      };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error); };
+    });
+  }
+  function op(store, mode, fn) {
+    return new Promise(function (res, rej) {
+      var t = db.transaction(store, mode);
+      var out = fn(t.objectStore(store));
+      t.oncomplete = function () { res(out && "result" in out ? out.result : undefined); };
+      t.onerror = function () { rej(t.error); };
+    });
+  }
+  function getAll(store) { return op(store, "readonly", function (s) { return s.getAll(); }); }
+  function get(store, key) { return op(store, "readonly", function (s) { return s.get(key); }); }
+  function put(store, val) { return op(store, "readwrite", function (s) { return s.put(val); }); }
+  function del(store, key) { return op(store, "readwrite", function (s) { return s.delete(key); }); }
+  function archiveOf(pid) {
+    return op("archive", "readonly", function (s) { return s.index("byProfile").getAll(pid); });
+  }
+  function newId(prefix) {
+    return prefix + "_" + Date.now().toString(36) + "_" +
+      Math.random().toString(36).slice(2, 8);
+  }
+
+  // ── حالة التشغيل ──────────────────────────────────────────────────────
+  var S = { profile: null, cursor: null, answers: {}, name: "" };
   var reactRoot = null;
 
-  function save() {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify({
-        v: D.BUILD.hash, cursor: S.cursor, answers: S.answers,
-        savedAt: new Date().toISOString(),
-      }));
-    } catch (e) { /* وضع خاص أو حصة ممتلئة — يتابع بلا حفظ */ }
+  function saveProgress() {
+    if (!S.profile) return;
+    put("progress", {
+      profileId: S.profile.id, v: D.BUILD.hash, cursor: S.cursor,
+      answers: S.answers, savedAt: new Date().toISOString(),
+    });
   }
-  function loadSaved() {
-    try {
-      var raw = localStorage.getItem(LS_KEY);
-      if (!raw) return null;
-      var p = JSON.parse(raw);
-      if (!p || p.v !== D.BUILD.hash) return { stale: true };
-      return p;
-    } catch (e) { return null; }
-  }
-  function clearSaved() { try { localStorage.removeItem(LS_KEY); } catch (e) {} }
+  function clearProgress() { if (S.profile) del("progress", S.profile.id); }
 
-  // ── أدوات ─────────────────────────────────────────────────────────────
+  // ── أدوات عرض ─────────────────────────────────────────────────────────
   var AR_D = "٠١٢٣٤٥٦٧٨٩";
   function ar(n) { return String(n).replace(/\d/g, function (d) { return AR_D[+d]; }); }
+  function arDate(iso) {
+    var d = new Date(iso);
+    return ar(d.getFullYear()) + "/" + ar(d.getMonth() + 1) + "/" + ar(d.getDate()) +
+      " · " + ar(d.getHours()) + ":" + ar(String(d.getMinutes()).padStart(2, "0"));
+  }
   function el(tag, cls, txt) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
     if (txt !== undefined) n.textContent = txt;
     return n;
   }
-  function screen() { root.textContent = ""; var s = el("div", "scr"); root.appendChild(s); return s; }
+  function screen() { unmountReact(); root.textContent = ""; var s = el("div", "scr"); root.appendChild(s); return s; }
+  function unmountReact() {
+    if (reactRoot) { try { reactRoot.unmount(); } catch (e) {} reactRoot = null; }
+  }
   function sentenceNode(segs, cls) {
     var p = el("p", cls);
     segs.forEach(function (g) {
       p.appendChild(Object.assign(el("span", g.t === "note" ? "q-note" : ""), { textContent: g.s }));
     });
     return p;
+  }
+  function download(content, filename, mime) {
+    var blob = new Blob([content], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
   }
 
   function blockItems(bi) {
@@ -100,22 +145,152 @@
     bar.appendChild(fill); h.appendChild(bar); box.appendChild(h);
   }
 
-  // ── الشاشات ───────────────────────────────────────────────────────────
-  function renderWelcome(staleNotice) {
-    var s = screen();
-    s.appendChild(el("h1", "t-title", "الكشاف"));
-    s.appendChild(el("p", "t-sub", "أداة الرواحل المسحية — قراءة بنيوية لعدساتك المعرفية وقدراتك التنظيمية"));
+  // ═══════════════ الشاشات ═══════════════
 
+  // ── البوابة: الملفات ──
+  function renderHome(notice) {
+    unmountReact();
+    Promise.all([getAll("profiles"), getAll("progress"), getAll("archive")]).then(function (r) {
+      var profiles = r[0].sort(function (a, b) { return a.createdAt < b.createdAt ? -1 : 1; });
+      var progress = {}, counts = {};
+      r[1].forEach(function (p) { progress[p.profileId] = p; });
+      r[2].forEach(function (a) { counts[a.profileId] = (counts[a.profileId] || 0) + 1; });
+
+      var s = screen();
+      s.appendChild(el("h1", "t-title", "الكشاف"));
+      s.appendChild(el("p", "t-sub", "أداة الرواحل المسحية — كل شيء على جهازك، ولا شيء يغادره"));
+      if (notice) s.appendChild(Object.assign(el("blockquote", "warnbox"), { textContent: notice }));
+
+      var cov = el("blockquote", "covenant");
+      cov.appendChild(el("p", "", "«هذا التقرير وصف لطريقة عملك، لا حكم عليك.»"));
+      cov.appendChild(el("p", "cov-sub", "ما تقرأه حالة لا صفة · وترجيح لا يقين · وآخر كلمة لك أنت."));
+      s.appendChild(cov);
+
+      if (profiles.length) {
+        s.appendChild(el("h2", "sec-h", "ملفات هذا الجهاز"));
+        var list = el("div", "home-list");
+        profiles.forEach(function (p) {
+          var card = el("button", "profile-card");
+          card.appendChild(el("span", "p-alias", p.alias));
+          var pr = progress[p.id];
+          var bits = [];
+          if (pr && pr.cursor && pr.cursor !== "done" && pr.v === D.BUILD.hash)
+            bits.push("استبيان جارٍ — الكتلة " + ar((pr.cursor.block || 0) + 1));
+          if (counts[p.id]) bits.push("تقارير محفوظة: " + ar(counts[p.id]));
+          card.appendChild(el("span", "p-state", bits.join(" · ") || "لم يبدأ بعد"));
+          card.onclick = function () { S.profile = p; renderProfile(); };
+          list.appendChild(card);
+        });
+        s.appendChild(list);
+      }
+
+      var form = el("div", "newp");
+      var inp = el("input", "name-input");
+      inp.type = "text"; inp.maxLength = 40;
+      inp.placeholder = profiles.length ? "اسم ملف جديد (لشخص آخر مثلاً)…" : "اسمك أو اسم مستعار…";
+      var btn = el("button", "btn big", profiles.length ? "＋ إنشاء ملف جديد" : "أنشئ ملفك وابدأ");
+      btn.onclick = function () {
+        var alias = inp.value.trim() || "ملفي";
+        var p = { id: newId("p"), alias: alias, createdAt: new Date().toISOString() };
+        put("profiles", p).then(function () { S.profile = p; renderProfile(); });
+      };
+      form.appendChild(inp); form.appendChild(btn);
+      s.appendChild(form);
+
+      var tools = el("div", "actions");
+      var exp = el("button", "btn ghost", "⬇ نسخة احتياطية لكل الجهاز");
+      exp.onclick = exportBackup;
+      tools.appendChild(exp);
+      var impLab = el("label", "btn ghost", "⬆ استيراد نسخة احتياطية");
+      var impInp = el("input", "");
+      impInp.type = "file"; impInp.accept = "application/json"; impInp.style.display = "none";
+      impInp.addEventListener("change", function () {
+        if (impInp.files[0]) importBackup(impInp.files[0]);
+      });
+      impLab.appendChild(impInp);
+      tools.appendChild(impLab);
+      s.appendChild(tools);
+      s.appendChild(el("p", "privacy",
+        "🔒 لا خادم ولا حساب ولا تتبع — النسخة الاحتياطية ملف واحد بيدك، وهي درعك أمام حذف النظام للتخزين الخامل."));
+    });
+  }
+
+  // ── ملف واحد ──
+  function renderProfile() {
+    var p = S.profile;
+    Promise.all([get("progress", p.id), archiveOf(p.id)]).then(function (r) {
+      var pr = r[0];
+      var reports = r[1].sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+      var s = screen();
+      var backRow = el("div", "toprow");
+      var back = el("button", "btn ghost small", "→ كل الملفات");
+      back.onclick = function () { S.profile = null; renderHome(); };
+      backRow.appendChild(back);
+      s.appendChild(backRow);
+      s.appendChild(el("h1", "t-title small", p.alias));
+
+      var acts = el("div", "actions");
+      if (pr && pr.cursor && pr.cursor !== "done" && pr.v === D.BUILD.hash) {
+        var resume = el("button", "btn big", "استئناف الاستبيان — الكتلة " + ar((pr.cursor.block || 0) + 1));
+        resume.onclick = function () {
+          S.cursor = pr.cursor; S.answers = pr.answers || {}; route();
+        };
+        acts.appendChild(resume);
+        var restart = el("button", "btn ghost", "البدء من جديد");
+        restart.onclick = function () {
+          if (confirm("سيمحو هذا تقدمك الجاري (لا يمسّ التقارير المحفوظة). أواصل؟"))
+            renderIntro(true);
+        };
+        acts.appendChild(restart);
+      } else {
+        if (pr && pr.cursor && pr.cursor !== "done" && pr.v !== D.BUILD.hash)
+          s.appendChild(Object.assign(el("blockquote", "warnbox"), { textContent:
+            "تحدّثت الأداة منذ آخر تقدم محفوظ، فأُلغي — لا تُقرأ إجابات قديمة بخرائط جديدة." }));
+        var start = el("button", "btn big", reports.length ? "استبيان جديد" : "ابدأ الاستبيان");
+        start.onclick = function () { renderIntro(true); };
+        acts.appendChild(start);
+      }
+      s.appendChild(acts);
+
+      if (reports.length) {
+        s.appendChild(el("h2", "sec-h", "التقارير المحفوظة"));
+        s.appendChild(el("p", "faintline",
+          "كل تقرير سِجلٌّ يُقرأ وحده — لا يُعرض قياسان معاً ولا يُقرأ فارق بينهما."));
+        var list = el("div", "home-list");
+        reports.forEach(function (rec, i) {
+          var row = el("button", "arch-item");
+          row.appendChild(el("span", "p-alias", "تقرير " + arDate(rec.createdAt)));
+          row.appendChild(el("span", "p-state",
+            (rec.name ? rec.name + " · " : "") + (i === 0 ? "الأحدث" : "سِجلّ سابق")));
+          row.onclick = function () { renderArchived(rec, i === 0); };
+          list.appendChild(row);
+        });
+        s.appendChild(list);
+      }
+
+      var danger = el("div", "actions");
+      var delBtn = el("button", "btn ghost small danger", "حذف هذا الملف نهائياً");
+      delBtn.onclick = function () {
+        if (!confirm("سيمحو هذا الملف وتقدمه وكل تقاريره من الجهاز نهائياً. أواصل؟")) return;
+        Promise.all([del("profiles", p.id), del("progress", p.id)]).then(function () {
+          return archiveOf(p.id);
+        }).then(function (recs) {
+          return Promise.all(recs.map(function (r2) { return del("archive", r2.id); }));
+        }).then(function () { S.profile = null; renderHome(); });
+      };
+      danger.appendChild(delBtn);
+      s.appendChild(danger);
+    });
+  }
+
+  // ── مقدمة الاستبيان (العهد والتعليمات) ──
+  function renderIntro(fresh) {
+    var s = screen();
+    s.appendChild(el("h1", "t-title small", "قبل أن تبدأ"));
     var cov = el("blockquote", "covenant");
     cov.appendChild(el("p", "", "«هذا التقرير وصف لطريقة عملك، لا حكم عليك.»"));
     cov.appendChild(el("p", "cov-sub", "ما تقرأه حالة لا صفة · وترجيح لا يقين · وآخر كلمة لك أنت."));
     s.appendChild(cov);
-
-    if (staleNotice) {
-      s.appendChild(Object.assign(el("blockquote", "warnbox"), { textContent:
-        "تحدّثت الأداة منذ زيارتك السابقة، فأُلغيت الإجابات المحفوظة — لا تُقرأ إجابات قديمة بخرائط جديدة. نبدأ من جديد." }));
-    }
-
     var how = el("div", "howto");
     how.appendChild(el("h2", "", "كيف تجيب؟"));
     var ol = el("ul", "");
@@ -124,51 +299,31 @@
       "في كل كتلة تختار أولاً من كل بند الجملة (أ) أو (ب) الأكثر وصفاً لك مقارنةً بالأخرى.",
       "ثم تعود جُمل الكتلة نفسها واحدةً واحدة لتقيّم كل جملة على حدة: من ١ (لا تمثلني أبدًا) إلى ٦ (تمثلني تمامًا) — بمعزل عن اختيارك السابق.",
       "لا إجابة صحيحة وأخرى خاطئة — لا درجة أفضل، يوجد نمط مختلف.",
-      "تقدّمك يُحفظ على جهازك تلقائياً وتستطيع الاستئناف لاحقاً.",
+      "تقدّمك يُحفظ في ملف «" + S.profile.alias + "» على هذا الجهاز تلقائياً.",
     ].forEach(function (t) { ol.appendChild(el("li", "", t)); });
     how.appendChild(ol);
     s.appendChild(how);
-
-    s.appendChild(Object.assign(el("p", "privacy"), { textContent:
-      "🔒 خصوصيتك: هذه الصفحة قائمة بذاتها ومنافذ الشبكة فيها مقفلة برمجياً — إجاباتك وتقريرك لا يغادران جهازك." }));
-
-    var actions = el("div", "actions");
-    var saved = loadSaved();
-    if (saved && !saved.stale && saved.cursor) {
-      var resume = el("button", "btn big", saved.cursor === "done"
-        ? "إجاباتك مكتملة — اعرض تقريرك"
-        : "استئناف من الكتلة " + ar((saved.cursor.block || 0) + 1));
-      resume.onclick = function () {
-        S.cursor = saved.cursor; S.answers = saved.answers || {};
-        route();
-      };
-      actions.appendChild(resume);
-      var restart = el("button", "btn ghost", "البدء من جديد");
-      restart.onclick = function () {
-        if (confirm("سيؤدي هذا إلى محو إجاباتك المحفوظة. أواصل؟")) {
-          clearSaved(); S.cursor = { block: 0, phase: "choice", idx: 0 }; S.answers = {};
-          save(); route();
-        }
-      };
-      actions.appendChild(restart);
-    } else {
-      var start = el("button", "btn big", "ابدأ الاستبيان");
-      start.onclick = function () {
-        S.cursor = { block: 0, phase: "choice", idx: 0 }; S.answers = {};
-        save(); route();
-      };
-      actions.appendChild(start);
-    }
-    s.appendChild(actions);
+    var acts = el("div", "actions");
+    var go = el("button", "btn big", "ابدأ");
+    go.onclick = function () {
+      S.cursor = { block: 0, phase: "choice", idx: 0 };
+      if (fresh) S.answers = {};
+      saveProgress(); route();
+    };
+    acts.appendChild(go);
+    var back = el("button", "btn ghost", "رجوع");
+    back.onclick = renderProfile;
+    acts.appendChild(back);
+    s.appendChild(acts);
   }
 
+  // ── الاختيار ──
   function renderChoice() {
     var c = S.cursor, items = blockItems(c.block), item = items[c.idx];
     var s = screen();
     progressHeader(s);
     s.appendChild(el("h2", "q-prompt", "أي الجملتين أكثر وصفاً لك مقارنةً بالأخرى؟"));
     s.appendChild(el("p", "q-num", "البند " + ar(item)));
-
     var prev = (S.answers[item] || {}).choice;
     ["a", "b"].forEach(function (letter) {
       var btn = el("button", "choice-btn" + (prev === letter ? " picked" : ""));
@@ -179,14 +334,13 @@
         S.answers[item].choice = letter;          // نقطة التحويل الوحيدة أ/ب → a/b
         if (c.idx + 1 < items.length) c.idx += 1;
         else { c.phase = "rate"; c.idx = 0; }
-        save(); route();
+        saveProgress(); route();
       };
       s.appendChild(btn);
     });
-
     if (c.idx > 0) {
       var back = el("button", "btn ghost small", "→ السابق");
-      back.onclick = function () { c.idx -= 1; save(); route(); };
+      back.onclick = function () { c.idx -= 1; saveProgress(); route(); };
       s.appendChild(back);
     }
   }
@@ -197,17 +351,16 @@
     return seq;
   }
 
+  // ── التقييم — جملة مفردة بلا أثر للاختيار (DEC-035) ──
   function renderRate() {
     var c = S.cursor, seq = rateSeq(c.block), cur = seq[c.idx];
     var item = cur[0], letter = cur[1];
     var s = screen();
     progressHeader(s);
     s.appendChild(el("h2", "q-prompt", "إلى أي مدى تمثّلك هذه الجملة؟"));
-    // لا يُعرض أي أثر لاختيار المرحلة الأولى (DEC-035)
     var card = el("div", "rate-card");
     card.appendChild(sentenceNode(D.ITEMS[item][letter], "rate-text"));
     s.appendChild(card);
-
     var key = letter === "a" ? "ratingA" : "ratingB";
     var prev = (S.answers[item] || {})[key];
     var scale = el("div", "scale");
@@ -217,9 +370,9 @@
         S.answers[item] = S.answers[item] || {};
         S.answers[item][key] = val;
         if (c.idx + 1 < seq.length) c.idx += 1;
-        else if (c.block + 1 < D.BLOCKS.length) { S.cursor = { block: c.block + 1, phase: "choice", idx: 0 }; }
-        else { S.cursor = "preflight"; }
-        save(); route();
+        else if (c.block + 1 < D.BLOCKS.length) S.cursor = { block: c.block + 1, phase: "choice", idx: 0 };
+        else S.cursor = "preflight";
+        saveProgress(); route();
       };
       scale.appendChild(b);
     })(v);
@@ -228,10 +381,9 @@
     lbl.appendChild(el("span", "", "١ = لا تمثلني أبدًا"));
     lbl.appendChild(el("span", "", "٦ = تمثلني تمامًا"));
     s.appendChild(lbl);
-
     if (c.idx > 0) {
       var back = el("button", "btn ghost small", "→ السابق");
-      back.onclick = function () { c.idx -= 1; save(); route(); };
+      back.onclick = function () { c.idx -= 1; saveProgress(); route(); };
       s.appendChild(back);
     }
   }
@@ -254,7 +406,6 @@
   }
 
   function renderPreflight() {
-    // فحص محلي شامل ثم فحص عقد المدخل (missingItems — بمصفوفات الأزواج الخام)
     var gap = firstIncomplete();
     var missing = B.missingItems(S.answers, RAW_MAPS);
     if (gap || missing.length) {
@@ -262,69 +413,244 @@
       s.appendChild(el("h2", "q-prompt", "بقيت خطوات لم تكتمل"));
       s.appendChild(el("p", "", "عقد المدخل يمنع توليد تقرير على إجابات ناقصة — سنعود بك إلى أول موضع متبقٍّ."));
       var go = el("button", "btn big", "أكمل من حيث توقفت");
-      go.onclick = function () { S.cursor = gap || { block: 0, phase: "choice", idx: 0 }; save(); route(); };
+      go.onclick = function () { S.cursor = gap || { block: 0, phase: "choice", idx: 0 }; saveProgress(); route(); };
       s.appendChild(go);
       return;
     }
-    S.cursor = "name"; save(); route();
+    S.cursor = "name"; saveProgress(); route();
   }
 
   function renderName() {
     var s = screen();
     s.appendChild(el("h1", "t-title small", "اكتمل الاستبيان ✓"));
-    s.appendChild(el("p", "t-sub", "خطوة أخيرة اختيارية قبل توليد تقريرَيك."));
-    var lab = el("label", "name-label", "اسمك (اختياري — يظهر في ترويسة التقرير فقط ولا يُخزَّن):");
+    s.appendChild(el("p", "t-sub", "سيُولَّد تقريراك ويُحفظان في ملف «" + S.profile.alias + "» على هذا الجهاز."));
+    var lab = el("label", "name-label", "الاسم في ترويسة التقرير (اختياري):");
     var inp = el("input", "name-input");
-    inp.type = "text"; inp.maxLength = 60; inp.value = S.name || "";
+    inp.type = "text"; inp.maxLength = 60; inp.value = S.name || S.profile.alias || "";
     lab.appendChild(inp); s.appendChild(lab);
     var go = el("button", "btn big", "أنشئ تقريرَيّ");
     go.onclick = function () {
       S.name = inp.value.trim();
-      S.cursor = "done"; save(); route();
+      // التوليد ثم الأرشفة: النص المُسلَّم وكتلة تدقيقه يُحفظان حرفياً (عقد إعادة التوليد)
+      var gen = DR.generate(S.answers, K2_MAP, K2_ORDER, K3_MAP);
+      if (!gen.k2 && !gen.k3) {
+        var s2 = screen();
+        s2.appendChild(el("h2", "q-prompt", "تعذّر توليد التقرير"));
+        gen.errors.forEach(function (e2) {
+          s2.appendChild(Object.assign(el("blockquote", "warnbox"), { textContent: e2 }));
+        });
+        var back = el("button", "btn ghost", "رجوع للملف");
+        back.onclick = renderProfile;
+        s2.appendChild(back);
+        return;
+      }
+      var rec = {
+        id: newId("r"), profileId: S.profile.id, name: S.name,
+        createdAt: new Date().toISOString(), buildHash: D.BUILD.hash,
+        k2: gen.k2, k3: gen.k3, errors: gen.errors,
+      };
+      put("archive", rec).then(function () {
+        S.cursor = "done"; saveProgress(); route();
+      });
     };
     s.appendChild(go);
   }
 
+  // ── التقرير الطازج — DualReportView كما هي ──
   function renderReport() {
     root.textContent = "";
     var host = el("div", "");
     root.appendChild(host);
     reactRoot = ReactDOM.createRoot(host);
     reactRoot.render(React.createElement(
-      window.RawahilDualReport.DualReportView,
+      DR.DualReportView,
       {
         answers: S.answers, name: S.name,
         K2_MAP: K2_MAP, K2_ORDER: K2_ORDER, K3_MAP: K3_MAP,
-        // لا خاصية report — لوحة K1/K4 الداخلية لا تُعرض علناً (DEC-186)
+        // لا خاصية report — لوحة K1/K4 لا تُعرض علناً (DEC-186)
         onRestart: function () {
-          if (!confirm("سيمحو هذا إجاباتك وتقريرك من الجهاز. أواصل؟")) return;
-          try { reactRoot.unmount(); } catch (e) {}
-          clearSaved(); S.cursor = null; S.answers = {}; S.name = "";
-          route();
+          // التقرير محفوظ في الأرشيف — الخروج لا يفقد شيئاً
+          unmountReact();
+          clearProgress(); S.cursor = null; S.answers = {}; S.name = "";
+          renderProfile();
         },
       }
     ));
   }
 
+  // ── عارض الأرشيف — النص المحفوظ حرفياً، سِجلّ يُقرأ وحده ──
+  function renderArchived(rec, isLatest) {
+    var s = screen();
+    var backRow = el("div", "toprow");
+    var back = el("button", "btn ghost small", "→ ملف " + S.profile.alias);
+    back.onclick = renderProfile;
+    backRow.appendChild(back);
+    s.appendChild(backRow);
+    s.appendChild(el("h1", "t-title small", "تقرير " + arDate(rec.createdAt)));
+    if (!isLatest) {
+      s.appendChild(Object.assign(el("blockquote", "warnbox"), { textContent:
+        "سِجلٌّ سابق — يُقرأ وحده. تسجيل القياسات مباح، وقراءة الفارق بين قياسين محظورة حتى تُبنى قواعدها." }));
+    }
+    var tabs = el("div", "rw-tabs");
+    var body = el("div", "rw-doc");
+    var actions = el("div", "rw-actions");
+    var current = rec.k2 ? "k2" : "k3";
+    var brief = false;
+
+    function renderBody() {
+      var doc = rec[current];
+      body.innerHTML = doc
+        ? DR.mdToHtml(current === "k2" && brief && doc.brief ? doc.brief : doc.text)
+        : "<p class='rw-p'>هذا الجانب غير متاح في هذا السجلّ.</p>";
+      renderActions();
+    }
+    function tabBtn(key, label) {
+      var b = el("button", "rw-tab" + (current === key ? " on" : ""), label);
+      b.onclick = function () {
+        current = key;
+        Array.prototype.forEach.call(tabs.children, function (c2) { c2.classList.remove("on"); });
+        b.classList.add("on");
+        renderBody();
+      };
+      return b;
+    }
+    tabs.appendChild(tabBtn("k2", "تقرير التفكير (K2)"));
+    tabs.appendChild(tabBtn("k3", "تقرير الانفعال (K3)"));
+    s.appendChild(tabs);
+    s.appendChild(Object.assign(el("blockquote", "rw-note"), { textContent:
+      "التقريران مستندان منفصلان يُقرأ كلٌّ منهما وحده. لا يُقابَل بند من أحدهما ببند من الآخر." }));
+    s.appendChild(body);
+    s.appendChild(actions);
+
+    function renderActions() {
+      actions.textContent = "";
+      var doc = rec[current];
+      if (!doc) return;
+      if (current === "k2" && doc.brief) {
+        var t = el("button", "rw-toggle", brief ? "▸ عرض مختصر — اضغط للكامل" : "▾ عرض كامل — اضغط للمختصر");
+        t.onclick = function () { brief = !brief; renderBody(); };
+        actions.appendChild(t);
+      }
+      var md = el("button", "rw-btn", "⬇ Markdown");
+      md.onclick = function () { DR.exportMd(doc, current, rec.name); };
+      actions.appendChild(md);
+      var js = el("button", "rw-btn ghost", "⬇ JSON (بكتلة التدقيق)");
+      js.onclick = function () { DR.exportJson(doc, current, rec.name); };
+      actions.appendChild(js);
+      var pr = el("button", "rw-btn ghost", "🖨 طباعة / PDF");
+      pr.onclick = function () { DR.exportPrint(doc, current, rec.name); };
+      actions.appendChild(pr);
+      var sh = el("button", "rw-btn ghost", "↗ مشاركة كملف");
+      sh.onclick = function () { shareDoc(doc, current, rec.name); };
+      actions.appendChild(sh);
+    }
+    renderBody();
+  }
+
+  function shareDoc(doc, circle, name) {
+    var hdr = "# تقرير " + (circle === "k2" ? "التفكير" : "الانفعال") +
+      (name ? " — " + name : "") + "\n\n";
+    var content = "﻿" + hdr + doc.text;
+    var fname = "تقرير-" + (circle === "k2" ? "التفكير-K2" : "الانفعال-K3") + ".md";
+    try {
+      var file = new File([content], fname, { type: "text/markdown" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: fname }).catch(function () {});
+        return;
+      }
+    } catch (e) { /* متصفح بلا Web Share — ننزل الملف */ }
+    download(content, fname, "text/markdown;charset=utf-8");
+  }
+
+  // ── النسخة الاحتياطية ──
+  function exportBackup() {
+    Promise.all([getAll("profiles"), getAll("progress"), getAll("archive")]).then(function (r) {
+      var payload = {
+        schema: "RAWAHIL-KASHAF-BACKUP-v1",
+        exportedAt: new Date().toISOString(),
+        buildHash: D.BUILD.hash,
+        profiles: r[0], progress: r[1], archive: r[2],
+      };
+      var d = new Date();
+      download(JSON.stringify(payload), "kashaf-backup-" +
+        d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") +
+        String(d.getDate()).padStart(2, "0") + ".json", "application/json;charset=utf-8");
+    });
+  }
+
+  function importBackup(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var p;
+      try { p = JSON.parse(reader.result); } catch (e) { p = null; }
+      if (!p || p.schema !== "RAWAHIL-KASHAF-BACKUP-v1" ||
+          !Array.isArray(p.profiles) || !Array.isArray(p.archive)) {
+        renderHome("الملف ليس نسخة احتياطية صالحة من «الكشاف».");
+        return;
+      }
+      if (!confirm("سيستبدل الاستيراد كلَّ بيانات هذا الجهاز بمحتوى النسخة (" +
+                   p.profiles.length + " ملفات، " + p.archive.length + " تقارير). أواصل؟")) return;
+      op("profiles", "readwrite", function (s) { s.clear(); })
+        .then(function () { return op("progress", "readwrite", function (s) { s.clear(); }); })
+        .then(function () { return op("archive", "readwrite", function (s) { s.clear(); }); })
+        .then(function () {
+          return Promise.all(
+            p.profiles.map(function (x) { return put("profiles", x); })
+              .concat((p.progress || []).map(function (x) { return put("progress", x); }))
+              .concat(p.archive.map(function (x) { return put("archive", x); })));
+        })
+        .then(function () { S.profile = null; renderHome("استُوردت النسخة الاحتياطية بنجاح."); });
+    };
+    reader.readAsText(file);
+  }
+
+  // ── هجرة مخزن v1 (localStorage) ──
+  function migrateLegacy() {
+    var raw = null;
+    try { raw = localStorage.getItem(LEGACY_KEY); } catch (e) {}
+    if (!raw) return Promise.resolve(null);
+    var payload = null;
+    try { payload = JSON.parse(raw); } catch (e) {}
+    try { localStorage.removeItem(LEGACY_KEY); } catch (e) {}
+    if (!payload || payload.v !== D.BUILD.hash || !payload.cursor) {
+      return Promise.resolve(payload ? "أُلغي تقدم قديم محفوظ بنسخة أقدم من الأداة." : null);
+    }
+    var p = { id: newId("p"), alias: "ملفي", createdAt: new Date().toISOString() };
+    return put("profiles", p).then(function () {
+      return put("progress", {
+        profileId: p.id, v: payload.v, cursor: payload.cursor,
+        answers: payload.answers || {}, savedAt: new Date().toISOString(),
+      });
+    }).then(function () { return "نُقل تقدمك المحفوظ إلى ملف «ملفي» — افتحه للمتابعة."; });
+  }
+
   function route() {
     var c = S.cursor;
-    if (!c) return renderWelcome();
+    if (!c) return S.profile ? renderProfile() : renderHome();
     if (c === "preflight") return renderPreflight();
     if (c === "name") return renderName();
     if (c === "done") return renderReport();
     return c.phase === "choice" ? renderChoice() : renderRate();
   }
 
-  // ── الإقلاع — سلامة الحزم أولاً ───────────────────────────────────────
+  // ── الإقلاع — سلامة الحزم ثم القاعدة ثم الهجرة ────────────────────────
   try {
     PK.verifyPacks();
   } catch (e) {
-    root.textContent = "";
     var warn = el("blockquote", "warnbox");
     warn.textContent = "⚠️ انجراف في حزم المحتوى — الأداة معطَّلة حفاظاً على سلامة القراءة. (" + e.message + ")";
-    root.appendChild(warn);
+    root.textContent = ""; root.appendChild(warn);
     return;
   }
-  var boot = loadSaved();
-  renderWelcome(boot && boot.stale);
+  openDb().then(function (d) {
+    db = d;
+    return migrateLegacy();
+  }).then(function (notice) {
+    renderHome(notice);
+  }).catch(function (e) {
+    // بيئة بلا IndexedDB — نادرة؛ نوضح بدل أن نفشل صامتين
+    var warn = el("blockquote", "warnbox");
+    warn.textContent = "تعذّر فتح مخزن الجهاز (" + e + ") — تصفّح خاص؟ الأداة تحتاج تخزيناً محلياً للملفات والأرشيف.";
+    root.textContent = ""; root.appendChild(warn);
+  });
 })();
