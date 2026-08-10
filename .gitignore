@@ -1,5 +1,4 @@
 # CHG-054: generated artifacts must never enter the knowledge base
 packs.js
 k3_contentpack.py
-_sup_node.js
 __pycache__/
