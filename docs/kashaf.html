@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="الكشاف — استبيان الرواحل: قراءة بنيوية لعدساتك المعرفية وقدراتك التنظيمية، بالكامل داخل متصفحك.">
 <title>الكشاف — استبيان الرواحل</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1417">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!--
 مولَّد بـ build_site.py — لا يُحرَّر يدوياً (DEC-250 · CHG-068)
 بصمات المصادر:
@@ -2579,6 +2585,15 @@ window.KashafData = {"ITEMS": {"1": {"a": [{"t": "text", "s": "أستمتع با
   renderWelcome(boot && boot.stale);
 })();
 
+</script>
+
+<script>
+"use strict";
+// تسجيل عامل الخدمة — التثبيت والعمل بلا شبكة (DEC-251).
+// لا يمسّ قفل صفر-الشبكة: القفل يمنع اتصالات الصفحة، والعامل يخدم ملفات التطبيق نفسها من التخزين.
+(function(){
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(function(){});
+})();
 </script>
 </body>
 </html>

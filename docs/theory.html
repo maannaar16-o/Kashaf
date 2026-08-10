@@ -6,6 +6,12 @@
 <meta name="description" content="المعادلة الحاكمة P = C + G والدوائر الأربع للشِفرة البنيوية">
 <title>النظرية — الرواحل</title>
 <link rel="stylesheet" href="assets/site.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1417">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 <header class="s-nav">
@@ -83,5 +89,22 @@
   <p class="s-faint">لا درجة أفضل — يوجد نمط مختلف · إجاباتك في الاستبيان لا تغادر جهازك.</p>
   <p class="s-faint"><a href="https://github.com/maannaar16-o/Kashaf">قاعدة المعرفة والكود — مفتوحان للاطلاع</a></p>
 </footer>
+<button id="pwa-install" class="pwa-install" hidden>📲 ثبّت «الكشاف» تطبيقاً</button>
+<script>
+"use strict";
+(function(){
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(function(){});
+  var deferred = null, btn = document.getElementById("pwa-install");
+  window.addEventListener("beforeinstallprompt", function(e){
+    e.preventDefault(); deferred = e; if (btn) btn.hidden = false;
+  });
+  if (btn) btn.addEventListener("click", function(){
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.then(function(){ deferred = null; btn.hidden = true; });
+  });
+  window.addEventListener("appinstalled", function(){ if (btn) btn.hidden = true; });
+})();
+</script>
 </body>
 </html>
