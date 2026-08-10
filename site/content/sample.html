@@ -1,0 +1,27 @@
+<div class="hero">
+  <h1>تقارير <span class="hl">نموذجية</span></h1>
+  <p class="tag">أربعة تقارير حقيقية مُخفاة الهوية من برنامج الطيّار — بالنطاق المختصر (أداة القراءة)، تُعرض أقسامها التسعة كما تصل للقارئ.</p>
+</div>
+
+<section class="sec">
+  <div class="quote">«هذا التقرير وصف لطريقة عملك، لا حكم عليك.» — كل تقرير يفتتح بعهد القراءة: ما تقرأه حالة لا صفة، وترجيح لا يقين، وآخر كلمة لصاحبه.<span class="src">— عهد القراءة</span></div>
+  <p class="dim">كل تقرير يخص مركزاً معرفياً مختلفاً — لاحظ كيف تتغير البنية نفسها بين الملفات الأربعة. التقرير الكامل الذي يستلمه المستجيب أوسع من هذا النطاق المختصر.</p>
+  <div class="tabs" id="sample-tabs">{{SAMPLE_TABS}}</div>
+  <div id="sample-container">{{SAMPLE_BODIES}}</div>
+  <div class="hero-cta"><a class="btn" href="kashaf.html">أنشئ تقريرك أنت — ابدأ الاستبيان</a></div>
+</section>
+<script>
+(function(){
+  "use strict";
+  var tabs = document.querySelectorAll("#sample-tabs button");
+  var bodies = document.querySelectorAll(".sample-body");
+  tabs.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      tabs.forEach(function(b){ b.classList.remove("on"); });
+      bodies.forEach(function(d){ d.classList.remove("on"); });
+      btn.classList.add("on");
+      document.getElementById(btn.getAttribute("data-target")).classList.add("on");
+    });
+  });
+})();
+</script>
