@@ -268,6 +268,12 @@
         s.appendChild(list);
       }
 
+      // إسهام من الأرشيف: أحدث سجلّ يحمل إجاباته (سجلات ما قبل DEC-253 لا تحملها)
+      var contribSrc = reports.find(function (r2) { return r2.answers; });
+      if (contribSrc && !p.contribDismissed) {
+        s.appendChild(contribCard(contribSrc.answers, p));
+      }
+
       var danger = el("div", "actions");
       var delBtn = el("button", "btn ghost small danger", "حذف هذا الملف نهائياً");
       delBtn.onclick = function () {
@@ -448,12 +454,60 @@
         id: newId("r"), profileId: S.profile.id, name: S.name,
         createdAt: new Date().toISOString(), buildHash: D.BUILD.hash,
         k2: gen.k2, k3: gen.k3, errors: gen.errors,
+        answers: S.answers,   // تبقى محلية — وتتيح الإسهام الطوعي لاحقاً (DEC-253)
       };
       put("archive", rec).then(function () {
         S.cursor = "done"; saveProgress(); route();
       });
     };
     s.appendChild(go);
+  }
+
+  // ── الإسهام الطوعي المجهّل (DEC-253) ─────────────────────────────────
+  // بانٍ نقي: يستقبل الإجابات وحدها ولا يقرأ أي حقل هوية — يفحصه البناء آلياً.
+  function contribPayload(answers) {
+    return {
+      schema: "RAWAHIL-CONTRIB-v1",
+      instrument: { measure: "40-MEASURE v5.0", scoring: "41 v4.2", build: D.BUILD.hash },
+      submitted: new Date().toISOString().slice(0, 7),   // سنة-شهر فقط — لا طابع دقيق
+      answers: answers,
+    };
+  }
+
+  var CONTRIB_TEXT =
+    "ما يُرسَل بالضبط: إجاباتك الـ٩٤ (الاختيار والتقييمان لكل بند) وإصدار الأداة وشهر الإسهام — " +
+    "لا اسمك، ولا اسم ملفك، ولا بريدك، ولا مُعرِّف جهازك. " +
+    "الإسهام يخدم اختبار صدق الأداة ميدانياً، وهو اختياري بالكامل ورفضه لا يؤثر في شيء.";
+
+  function startContribution(answers) {
+    try {
+      sessionStorage.setItem("rawahil.contrib.pending",
+        JSON.stringify(contribPayload(answers)));
+      location.href = "contribute.html";
+    } catch (e) {
+      alert("تعذّر تجهيز الإسهام: " + e);
+    }
+  }
+
+  function contribCard(answers, profile) {
+    var box = el("div", "contrib-card");
+    box.appendChild(el("h3", "contrib-h", "إسهام اختياري — مجهّل تماماً"));
+    box.appendChild(el("p", "contrib-p", CONTRIB_TEXT));
+    var acts = el("div", "actions tight");
+    var go = el("button", "btn", "أطّلع قبل أن أقرر");
+    go.onclick = function () { startContribution(answers); };
+    acts.appendChild(go);
+    var no = el("button", "btn ghost", "لا، شكراً");
+    no.onclick = function () {
+      // الإزالة بعد اكتمال الحفظ — إبحار فوري لا يجهض المعاملة
+      if (profile) {
+        profile.contribDismissed = true;
+        put("profiles", profile).then(function () { box.remove(); });
+      } else box.remove();
+    };
+    acts.appendChild(no);
+    box.appendChild(acts);
+    return box;
   }
 
   // ── التقرير الطازج — DualReportView كما هي ──
@@ -476,6 +530,11 @@
         },
       }
     ));
+    // بطاقة الإسهام خارج شجرة React المختومة — أسفل التقرير
+    if (S.profile && !S.profile.contribDismissed) {
+      var ans = S.answers;
+      root.appendChild(contribCard(ans, S.profile));
+    }
   }
 
   // ── عارض الأرشيف — النص المحفوظ حرفياً، سِجلّ يُقرأ وحده ──

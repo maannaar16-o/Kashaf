@@ -279,6 +279,10 @@ body{margin:0;background:#0d1417;color:#EDEAE3;font-family:system-ui,'Segoe UI',
 .warnbox{border-right:3px solid #E8A33D;background:#202b30;color:#ffb86b;margin:16px;padding:10px 14px;border-radius:0 8px 8px 0}
 .q-note{color:#7d8d93;font-size:.85em}
 .sec-h{font-size:18px;color:#4FD1C5;margin:26px 0 6px;border-bottom:1px solid #3a4a52;padding-bottom:7px}
+.contrib-card{background:#141c20;border:1px dashed #E8A33D;border-radius:12px;padding:16px 18px 12px;margin:26px auto 10px;max-width:820px}
+.contrib-h{color:#E8A33D;font-size:16px;margin:0 0 6px}
+.contrib-p{color:#9fb0b6;font-size:14px;line-height:1.95;margin:0 0 10px}
+.actions.tight{margin:8px 0 4px;justify-content:flex-start}
 .home-list{display:flex;flex-direction:column;gap:10px;margin:12px 0}
 .profile-card,.arch-item{display:flex;flex-direction:column;gap:2px;text-align:right;width:100%;padding:14px 16px;background:#141c20;border:1px solid #3a4a52;border-radius:12px;color:#EDEAE3;cursor:pointer;font-family:inherit;font-size:15px}
 .profile-card:hover,.arch-item:hover{border-color:#4FD1C5}
@@ -433,7 +437,13 @@ PAGES = [
     ("teams",  "teams",  "الفرق والمنظمات", "بروتوكول تركيب الفرق والنسخة القيادية من التقرير"),
     ("method", "method", "المنهجية",        "تنفيذ مزدوج يُقاس تكافؤه وبوابة قبول من 16 أداة"),
     ("about",  "about",  "عن المشروع",      "ما الرواحل وما ليس هو — رؤية المشروع وحدوده المختومة"),
+    ("contribute", "contribute", "الإسهام الطوعي",
+     "بيانات ميدانية مجهّلة تختبر صدق الأداة — بموافقة صريحة والقرار كله للمستجيب"),
 ]
+
+# قناة الاستقبال المباشر (DEC-253): معطَّلة حتى ينشر المالك النقطة المرجعية
+# (site/contrib-receiver/) ويضع رابطها هنا — عندها يظهر زر الإرسال تلقائياً.
+CONTRIB_ENDPOINT = None
 
 
 def build_static_pages(sample_tabs, sample_bodies):
@@ -444,6 +454,9 @@ def build_static_pages(sample_tabs, sample_bodies):
         if slug == "sample":
             body = body.replace("{{SAMPLE_TABS}}", sample_tabs)
             body = body.replace("{{SAMPLE_BODIES}}", sample_bodies)
+        if slug == "contribute":
+            body = ('<script>window.KASHAF_CONTRIB_ENDPOINT = '
+                    + json.dumps(CONTRIB_ENDPOINT) + ";</script>\n" + body)
         html = (base.replace("{{title}}", title)
                     .replace("{{description}}", desc)
                     .replace("{{body}}", body))
@@ -674,6 +687,25 @@ def main():
         die("app.js: لافتة DEC-244 للأرشيف غائبة")
     if "RAWAHIL-KASHAF-BACKUP-v1" not in app_src:
         die("app.js: مخطط النسخة الاحتياطية غائب")
+
+    # المرحلة ③ (DEC-253): نقاء باني الإسهام — لا حقل هوية في الحمولة
+    m = re.search(r"function contribPayload\(answers\) \{.*?\n  \}", app_src, re.S)
+    if not m:
+        die("app.js: باني الإسهام contribPayload غائب")
+    builder = m.group(0)
+    for ident in ("name", "alias", "profile", "createdAt", "S\\."):
+        if re.search(ident, builder):
+            die(f"app.js: باني الإسهام يلمس حقل هوية «{ident}» — خرق DEC-253")
+    if '"RAWAHIL-CONTRIB-v1"' not in builder:
+        die("app.js: مخطط الإسهام غائب من الباني")
+    if "slice(0, 7)" not in builder:
+        die("app.js: طابع الإسهام ليس شهرياً — خرق تقليل البيانات")
+    if "RAWAHIL-CONTRIB-v1" not in pages["contribute.html"]:
+        die("contribute.html: مخطط الإسهام غائب")
+    if "CPL-08A-03" not in pages["kashaf.html"]:
+        die("kashaf.html: قفل صفر-الشبكة غائب — لا يُنشر بدونه")
+    if "window.KASHAF_CONTRIB_ENDPOINT" not in pages["contribute.html"]:
+        die("contribute.html: إعداد قناة الاستقبال غائب")
 
     # أيقونات التطبيق — موجودة وغير فارغة
     icons_src = os.path.join(SITE, "static", "icons")
