@@ -288,6 +288,21 @@ body{margin:0;background:#0d1417;color:#EDEAE3;font-family:system-ui,'Segoe UI',
 .profile-card:hover,.arch-item:hover{border-color:#4FD1C5}
 .p-alias{font-weight:700;font-size:16px}
 .p-state{color:#9fb0b6;font-size:13px}
+.mirror{max-width:720px;margin:10px auto}
+.m-title{font-size:20px;color:#4FD1C5;text-align:center;margin:18px 0 10px}
+.m-counter{text-align:center;color:#7d8d93;font-size:13px;margin:4px 0 0}
+.m-md p,.m-md h3{line-height:2.05}
+.m-md h3{color:#E8A33D;font-size:16.5px}
+.m-behavior{background:#141c20;border:1px solid #3a4a52;border-radius:12px;padding:16px 20px;font-size:18px;text-align:center;margin:14px 0}
+.m-behavior.dim2{font-size:14px;color:#9fb0b6;padding:8px 14px;border-style:dashed}
+.m-behavior p,.m-question p,.m-reveals p{margin:0}
+.m-question{background:#141c20;border-right:3px solid #4FD1C5;border-radius:0 10px 10px 0;padding:14px 18px;font-size:16.5px;line-height:2.1;margin:14px 0}
+.m-reveals{background:#141c20;border-right:3px solid #E8A33D;border-radius:0 10px 10px 0;padding:14px 18px;font-size:15.5px;line-height:2.05;margin:14px 0;color:#c8d2d5}
+.m-note{color:#7d8d93;font-size:13.5px;background:#141c20;border:1px dashed #3a4a52;border-radius:10px;padding:9px 13px}
+.m-vq{margin:10px 22px 14px 0}
+.m-vq li{margin:12px 0;line-height:2.05}
+.m-ta{display:block;width:100%;box-sizing:border-box;min-height:84px;margin:8px 0 14px;padding:11px;background:#141c20;border:1px solid #3a4a52;border-radius:10px;color:#EDEAE3;font-size:15px;font-family:inherit;line-height:1.9}
+.mirror .btn.big{display:block;margin:18px auto 0}
 .newp{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0}
 .newp .name-input{flex:1 1 220px;margin:0}
 .toprow{margin:4px 0 0}
@@ -687,6 +702,14 @@ def main():
         die("app.js: لافتة DEC-244 للأرشيف غائبة")
     if "RAWAHIL-KASHAF-BACKUP-v1" not in app_src:
         die("app.js: مخطط النسخة الاحتياطية غائب")
+
+    # المرآة (DEC-255/256): النصوص من الحزم حصراً — لا نسخة مقتبسة في كود التطبيق
+    if "TEXTLAYER_K3" not in app_src or "function sepParts" not in app_src:
+        die("app.js: وحدة المرآة أو مصدر حزمها غائب")
+    for sealed_frag in ("تلتقط الإشارة", "التهدئة الحقيقية تُنهي",
+                        "درجاتك في بعض الجوانب", "ظاهرها واحد وجذرها مختلف"):
+        if sealed_frag in app_src:
+            die(f"app.js: نص مختوم منسوخ في الكود («{sealed_frag}») — المصدر الحزم وحدها")
 
     # المرحلة ③ (DEC-253): نقاء باني الإسهام — لا حقل هوية في الحمولة
     m = re.search(r"function contribPayload\(answers\) \{.*?\n  \}", app_src, re.S)

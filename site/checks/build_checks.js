@@ -98,4 +98,17 @@ BLOCKS.forEach(([a, b], i) => {
 if (expectStart !== 95) fail("الكتل لا تنتهي عند 94");
 if (steps !== 282) fail(`الخطوات = ${steps} ≠ 282 (CHG-021)`);
 
-console.log("OK — فحوصات JS كلها مجتازة · K2 ثلاثي المسار · K3 مزدوج · التقريران يجتازان الحارسين");
+// ⑥ عُدّة المرآة (DEC-255/256): بنية نصوص الحزم كما تتوقعها الواجهة
+const TXT = PK.PACKS.TEXTLAYER_K3;
+if (!deepEq(Object.keys(TXT.VERIFY_QUESTIONS).sort(), ["BI", "CF", "IR", "ST"]))
+  fail("VERIFY_QUESTIONS: المفاتيح ليست BI/CF/IR/ST");
+const sepRows = TXT.SEPARATION_QS.split("\n").filter((l) => {
+  const t = l.trim();
+  if (!/^\|.*\|$/.test(t)) return false;
+  const c = t.slice(1, -1).split("|").map((x) => x.trim());
+  return c.length === 3 && !/^:?-+:?$/.test(c[0]) && c[0] !== "السلوك الشائع";
+});
+if (sepRows.length !== 8) fail(`SEPARATION_QS: صفوف الفصل = ${sepRows.length} ≠ 8`);
+if (!TXT.VERIFY_BLOCK || !TXT.VERIFY_CLOSING) fail("نصوص كتلة التحقق ناقصة");
+
+console.log("OK — فحوصات JS كلها مجتازة · K2 ثلاثي المسار · K3 مزدوج · التقريران يجتازان الحارسين · بنية عُدّة المرآة سليمة");
