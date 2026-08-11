@@ -72,6 +72,21 @@ body{margin:0;background:#0d1417;color:#EDEAE3;font-family:system-ui,'Segoe UI',
 .profile-card:hover,.arch-item:hover{border-color:#4FD1C5}
 .p-alias{font-weight:700;font-size:16px}
 .p-state{color:#9fb0b6;font-size:13px}
+.mirror{max-width:720px;margin:10px auto}
+.m-title{font-size:20px;color:#4FD1C5;text-align:center;margin:18px 0 10px}
+.m-counter{text-align:center;color:#7d8d93;font-size:13px;margin:4px 0 0}
+.m-md p,.m-md h3{line-height:2.05}
+.m-md h3{color:#E8A33D;font-size:16.5px}
+.m-behavior{background:#141c20;border:1px solid #3a4a52;border-radius:12px;padding:16px 20px;font-size:18px;text-align:center;margin:14px 0}
+.m-behavior.dim2{font-size:14px;color:#9fb0b6;padding:8px 14px;border-style:dashed}
+.m-behavior p,.m-question p,.m-reveals p{margin:0}
+.m-question{background:#141c20;border-right:3px solid #4FD1C5;border-radius:0 10px 10px 0;padding:14px 18px;font-size:16.5px;line-height:2.1;margin:14px 0}
+.m-reveals{background:#141c20;border-right:3px solid #E8A33D;border-radius:0 10px 10px 0;padding:14px 18px;font-size:15.5px;line-height:2.05;margin:14px 0;color:#c8d2d5}
+.m-note{color:#7d8d93;font-size:13.5px;background:#141c20;border:1px dashed #3a4a52;border-radius:10px;padding:9px 13px}
+.m-vq{margin:10px 22px 14px 0}
+.m-vq li{margin:12px 0;line-height:2.05}
+.m-ta{display:block;width:100%;box-sizing:border-box;min-height:84px;margin:8px 0 14px;padding:11px;background:#141c20;border:1px solid #3a4a52;border-radius:10px;color:#EDEAE3;font-size:15px;font-family:inherit;line-height:1.9}
+.mirror .btn.big{display:block;margin:18px auto 0}
 .newp{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0}
 .newp .name-input{flex:1 1 220px;margin:0}
 .toprow{margin:4px 0 0}
@@ -2728,6 +2743,7 @@ window.KashafData = {"ITEMS": {"1": {"a": [{"t": "text", "s": "أستمتع با
         answers: S.answers,   // تبقى محلية — وتتيح الإسهام الطوعي لاحقاً (DEC-253)
       };
       put("archive", rec).then(function () {
+        S.lastRec = rec;
         S.cursor = "done"; saveProgress(); route();
       });
     };
@@ -2781,6 +2797,149 @@ window.KashafData = {"ITEMS": {"1": {"a": [{"t": "text", "s": "أستمتع با
     return box;
   }
 
+  // ── مرآة «هل هذا أنا؟» — عُدّة التحقق الذاتي (DEC-255 · DEC-256) ──────
+  // النصوص من الحزم المختومة حصراً وقت التشغيل — لا نسخة في هذا الملف.
+  // مرآة لا اختبار: لا اختيار يُسجَّل درجةً، والتأمل الحر محلي في ملف صاحبه.
+  var TXT = PK.PACKS.TEXTLAYER_K3;
+
+  function sepParts() {
+    // يفكّ SEPARATION_QS: مقدمة → 8 صفوف (سلوك · سؤال فاصل · ماذا يكشف) → خاتمة
+    var intro = [], rows = [], tail = [], seen = false;
+    TXT.SEPARATION_QS.split("\n").forEach(function (l) {
+      var t2 = l.trim();
+      if (/^\|.*\|$/.test(t2)) {
+        seen = true;
+        var cells = t2.slice(1, -1).split("|").map(function (c) { return c.trim(); });
+        if (cells.length === 3 && !/^:?-+:?$/.test(cells[0]) && cells[0] !== "السلوك الشائع")
+          rows.push({ behavior: cells[0], question: cells[1], reveals: cells[2] });
+      } else if (t2) {
+        (seen ? tail : intro).push(t2);
+      }
+    });
+    return { intro: intro.join("\n"), rows: rows, tail: tail.join("\n") };
+  }
+
+  function md(el2, text) { el2.innerHTML = DR.mdToHtml(text); return el2; }
+
+  function renderMirror(rec, backFn) {
+    var sep = sepParts();
+    var bands3 = rec.k3 && rec.k3.audit ? rec.k3.audit.bands : null;
+    var high = bands3
+      ? ["IR", "BI", "CF", "ST"].filter(function (s2) { return bands3[s2] === "high"; })
+      : [];
+    var notes = (rec.mirror && rec.mirror.notes) ? Object.assign({}, rec.mirror.notes) : {};
+    var stage = { at: "intro", card: 0, step: 0 };
+
+    function saveNotes(done) {
+      rec.mirror = { notes: notes, savedAt: new Date().toISOString() };
+      var p2 = put("archive", rec);
+      if (done) p2.then(backFn);
+    }
+    function shell(cls) {
+      var s = screen();
+      var backRow = el("div", "toprow");
+      var back = el("button", "btn ghost small", "→ خروج من المرآة");
+      back.onclick = function () { saveNotes(false); backFn(); };
+      backRow.appendChild(back);
+      s.appendChild(backRow);
+      var box = el("div", "mirror " + (cls || ""));
+      s.appendChild(box);
+      return box;
+    }
+    function counter(box) {
+      box.appendChild(el("p", "m-counter",
+        "البطاقة " + ar(stage.card + 1) + " من " + ar(sep.rows.length)));
+    }
+
+    function show() {
+      if (stage.at === "intro") {
+        var b = shell();
+        b.appendChild(el("h2", "m-title", "🪞 مرآة «هل هذا أنا؟»"));
+        b.appendChild(md(el("div", "m-md"), sep.intro));
+        b.appendChild(el("p", "m-note",
+          "مرآة لا اختبار: لا درجات هنا ولا نتيجة — ما تختاره يبقى في ذهنك، وما تكتبه يبقى في ملفك على هذا الجهاز."));
+        var go = el("button", "btn big", high.length ? "ابدأ — سؤال القوة أولاً" : "ابدأ البطاقات");
+        go.onclick = function () { stage.at = high.length ? "s5" : "card"; show(); };
+        b.appendChild(go);
+      } else if (stage.at === "s5") {
+        var b2 = shell();
+        b2.appendChild(md(el("div", "m-md"), TXT.VERIFY_BLOCK));
+        var ul = el("ul", "m-vq");
+        high.forEach(function (s2) {
+          ul.appendChild(md(el("li", ""), TXT.VERIFY_QUESTIONS[s2]));
+        });
+        b2.appendChild(ul);
+        b2.appendChild(md(el("div", "m-md"), TXT.VERIFY_CLOSING));
+        var go2 = el("button", "btn big", "إلى البطاقات الثماني");
+        go2.onclick = function () { stage.at = "card"; show(); };
+        b2.appendChild(go2);
+      } else if (stage.at === "card") {
+        var row = sep.rows[stage.card];
+        var b3 = shell();
+        counter(b3);
+        if (stage.step === 0) {
+          b3.appendChild(el("h2", "m-title", "هل تقول عن نفسك:"));
+          b3.appendChild(md(el("div", "m-behavior"), row.behavior));
+          var acts = el("div", "actions");
+          var yes = el("button", "btn big", "نعم — أستحضر موقفاً");
+          yes.onclick = function () { stage.step = 1; show(); };
+          acts.appendChild(yes);
+          var skip = el("button", "btn ghost", "ليس سلوكي — التالي");
+          skip.onclick = next;
+          acts.appendChild(skip);
+          b3.appendChild(acts);
+        } else if (stage.step === 1) {
+          b3.appendChild(md(el("div", "m-behavior dim2"), row.behavior));
+          b3.appendChild(el("h2", "m-title", "استحضر آخر موقف حقيقي حدث فيه ذلك"));
+          b3.appendChild(el("p", "m-note", "خذ وقتك — لا عدّاد هنا. الموقف الحاضر في ذهنك هو ما سيجعل السؤال التالي مرآة."));
+          var got = el("button", "btn big", "استحضرتُه");
+          got.onclick = function () { stage.step = 2; show(); };
+          b3.appendChild(got);
+        } else if (stage.step === 2) {
+          b3.appendChild(md(el("div", "m-behavior dim2"), row.behavior));
+          b3.appendChild(el("h2", "m-title", "السؤال الفاصل — أجب في ذهنك"));
+          b3.appendChild(md(el("div", "m-question"), row.question));
+          var rev = el("button", "btn big", "تأملتُ — أرني ماذا يكشف");
+          rev.onclick = function () { stage.step = 3; show(); };
+          b3.appendChild(rev);
+        } else {
+          b3.appendChild(md(el("div", "m-behavior dim2"), row.behavior));
+          b3.appendChild(el("h2", "m-title", "ماذا يكشف"));
+          b3.appendChild(md(el("div", "m-reveals"), row.reveals));
+          var lab = el("label", "name-label", "ما الذي انتبهتَ إليه؟ (تأمل حر اختياري — يبقى في ملفك):");
+          var ta = el("textarea", "m-ta");
+          ta.value = notes[stage.card] || "";
+          lab.appendChild(ta);
+          b3.appendChild(lab);
+          var nxt = el("button", "btn big",
+            stage.card + 1 < sep.rows.length ? "البطاقة التالية" : "إنهاء المرآة");
+          nxt.onclick = function () {
+            if (ta.value.trim()) notes[stage.card] = ta.value.trim();
+            else delete notes[stage.card];
+            next();
+          };
+          b3.appendChild(nxt);
+        }
+      } else {
+        var b4 = shell();
+        b4.appendChild(el("h2", "m-title", "اكتملت المرآة ✓"));
+        b4.appendChild(md(el("div", "m-md"), sep.tail));
+        if (Object.keys(notes).length)
+          b4.appendChild(el("p", "m-note",
+            "حُفظت تأملاتك (" + ar(Object.keys(notes).length) + ") في ملفك على هذا الجهاز — وتدخل نسختك الاحتياطية."));
+        var done = el("button", "btn big", "عودة إلى التقرير");
+        done.onclick = function () { saveNotes(true); };
+        b4.appendChild(done);
+      }
+    }
+    function next() {
+      if (stage.card + 1 < sep.rows.length) { stage.card += 1; stage.step = 0; }
+      else stage.at = "done";
+      show();
+    }
+    show();
+  }
+
   // ── التقرير الطازج — DualReportView كما هي ──
   function renderReport() {
     root.textContent = "";
@@ -2805,6 +2964,17 @@ window.KashafData = {"ITEMS": {"1": {"a": [{"t": "text", "s": "أستمتع با
     if (S.profile && !S.profile.contribDismissed) {
       var ans = S.answers;
       root.appendChild(contribCard(ans, S.profile));
+    }
+    // مدخل المرآة — للسجل المؤرشف للتو (K3 موجود)
+    if (S.lastRec && S.lastRec.k3) {
+      var mrow = el("div", "actions");
+      var mbtn = el("button", "btn ghost", "🪞 مرآة «هل هذا أنا؟» — تعمّق بعد القراءة");
+      mbtn.onclick = function () {
+        var r2 = S.lastRec;
+        renderMirror(r2, function () { renderReport(); });
+      };
+      mrow.appendChild(mbtn);
+      root.appendChild(mrow);
     }
   }
 
@@ -2873,6 +3043,13 @@ window.KashafData = {"ITEMS": {"1": {"a": [{"t": "text", "s": "أستمتع با
       var sh = el("button", "rw-btn ghost", "↗ مشاركة كملف");
       sh.onclick = function () { shareDoc(doc, current, rec.name); };
       actions.appendChild(sh);
+      if (rec.k3) {
+        var mi = el("button", "rw-btn", "🪞 مرآة «هل هذا أنا؟»");
+        mi.onclick = function () {
+          renderMirror(rec, function () { renderArchived(rec, isLatest); });
+        };
+        actions.appendChild(mi);
+      }
     }
     renderBody();
   }
