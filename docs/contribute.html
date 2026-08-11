@@ -1,0 +1,177 @@
+<!doctype html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="بيانات ميدانية مجهّلة تختبر صدق الأداة — بموافقة صريحة والقرار كله للمستجيب">
+<title>الإسهام الطوعي — الرواحل</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1417">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+<header class="s-nav">
+  <div class="s-nav-inner">
+    <a class="s-brand" href="index.html">الرواحل<span class="s-brand-sub">· الكشاف</span></a>
+    <nav class="s-links">
+      <a href="index.html">الرئيسية</a>
+      <a href="theory.html">النظرية</a>
+      <a href="kashaf.html">الاستبيان</a>
+      <a href="sample.html">تقرير نموذجي</a>
+      <a href="teams.html">الفرق والمنظمات</a>
+      <a href="method.html">المنهجية</a>
+      <a href="about.html">عن المشروع</a>
+    </nav>
+  </div>
+</header>
+<main class="s-main">
+<script>window.KASHAF_CONTRIB_ENDPOINT = null;</script>
+<div class="hero">
+  <h1>الإسهام <span class="hl">الطوعي المجهّل</span></h1>
+  <p class="tag">بيانات ميدانية تختبر صدق الأداة — بلا اسم، بلا بريد، بلا مُعرِّف جهاز. القرار كله لك.</p>
+</div>
+
+<section class="sec">
+  <h2>ما الذي يُرسَل — بالضبط ولا شيء غيره؟</h2>
+  <ul>
+    <li><b>إجاباتك الـ٩٤</b>: الاختيار (أ/ب) والتقييمان لكل بند.</li>
+    <li><b>إصدار الأداة</b> التي أجبت بها (لضمان قراءة الإجابات بخرائطها الصحيحة).</li>
+    <li><b>شهر الإسهام</b> فقط — لا يوم ولا ساعة.</li>
+  </ul>
+  <p class="dim">ولا يُرسَل: اسمك · اسم ملفك · تقريرك · بريدك · مُعرِّف جهازك · موقعك. مواصفة البيانات هذه علنية ومختومة في سجلّ حوكمة المشروع، وأي توسيع لها يستلزم قراراً معلناً جديداً.</p>
+  <h3>فيمَ تُستعمل؟</h3>
+  <p>بنود الصدق المفتوحة في المشروع تنتظر بيانات استجابة حقيقية: قياس ميل اختيار (أ) مقابل حدّ الصدفة، وتشغيل بروتوكول اختبار التمييز الجاهز. إسهامك مادةُ هذا البحث — لا أكثر.</p>
+
+  <div id="contrib-box"></div>
+</section>
+<script>
+"use strict";
+(function () {
+  var box = document.getElementById("contrib-box");
+  var ENDPOINT = window.KASHAF_CONTRIB_ENDPOINT || null;
+
+  function el(tag, cls, txt) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt !== undefined) n.textContent = txt;
+    return n;
+  }
+
+  var raw = null;
+  try { raw = sessionStorage.getItem("rawahil.contrib.pending"); } catch (e) {}
+  var payload = null;
+  try { payload = raw && JSON.parse(raw); } catch (e) {}
+
+  if (!payload || payload.schema !== "RAWAHIL-CONTRIB-v1") {
+    var p = el("p", "dim",
+      "لا يوجد إسهام مجهّز في هذه الجلسة. يبدأ الإسهام من داخل تطبيق «الكشاف» بعد اكتمال تقريرك — حيث تُجهَّز الحزمة على جهازك وتُعرض عليك هنا قبل أي خطوة.");
+    box.appendChild(p);
+    var a = el("a", "btn", "افتح «الكشاف»");
+    a.href = "kashaf.html";
+    box.appendChild(a);
+    return;
+  }
+
+  var n = Object.keys(payload.answers || {}).length;
+  var ok = el("div", "quote");
+  ok.textContent = "حزمة الإسهام جاهزة على جهازك: " + "إجابات " + n +
+    " بنداً · أداة " + payload.instrument.measure + " · شهر " + payload.submitted +
+    " — لم يغادر أي شيء جهازك بعد.";
+  box.appendChild(ok);
+
+  var acts = el("div", "hero-cta");
+
+  var dl = el("button", "btn", "⬇ نزّل ملف الإسهام");
+  dl.onclick = function () {
+    var blob = new Blob([JSON.stringify(payload, null, 1)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a2 = document.createElement("a");
+    a2.href = url; a2.download = "rawahil-contrib-" + payload.submitted + ".json";
+    a2.click();
+    URL.revokeObjectURL(url);
+    done("نُزِّل الملف — أرسله عبر القناة المعلنة في صفحة المشروع على GitHub، أو احتفظ به حتى تُفتح قناة الاستقبال المباشر.");
+  };
+  acts.appendChild(dl);
+
+  try {
+    var file = new File([JSON.stringify(payload)], "rawahil-contrib.json",
+      { type: "application/json" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      var sh = el("button", "btn ghost", "↗ شارك الملف");
+      sh.onclick = function () {
+        navigator.share({ files: [file], title: "إسهام الرواحل المجهّل" }).catch(function () {});
+      };
+      acts.appendChild(sh);
+    }
+  } catch (e) { /* بيئة بلا Web Share */ }
+
+  if (ENDPOINT) {
+    var send = el("button", "btn", "أرسل الآن مباشرة");
+    send.onclick = function () {
+      send.disabled = true; send.textContent = "جارٍ الإرسال…";
+      fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        done("وصل إسهامك — شكراً. لا يمكن ربطه بك، ولذلك لا يمكن سحبه بعد الآن.");
+      }).catch(function (e2) {
+        send.disabled = false; send.textContent = "أرسل الآن مباشرة";
+        var w = el("p", "dim", "تعذّر الإرسال (" + e2.message + ") — جرّب لاحقاً أو استعمل الملف.");
+        box.appendChild(w);
+      });
+    };
+    acts.appendChild(send);
+  } else {
+    box.appendChild(el("p", "dim",
+      "قناة الاستقبال المباشر لم تُفتح بعد — حين تُفتح بقرار معلن سيظهر هنا زر الإرسال. حتى حينها: الملف بيدك."));
+  }
+
+  var cancel = el("button", "btn ghost", "إلغاء — امحُ الحزمة");
+  cancel.onclick = function () {
+    done("مُحيت الحزمة من هذه الجلسة. لا شيء أُرسل.");
+  };
+  acts.appendChild(cancel);
+  box.appendChild(acts);
+
+  function done(msg) {
+    try { sessionStorage.removeItem("rawahil.contrib.pending"); } catch (e) {}
+    box.textContent = "";
+    box.appendChild(el("div", "quote", msg));
+    var back = el("a", "btn ghost", "→ عودة إلى «الكشاف»");
+    back.href = "kashaf.html";
+    box.appendChild(back);
+  }
+})();
+</script>
+
+</main>
+<footer class="s-footer">
+  <p>مشروع الرواحل — إطار عربي لفهم البنية الفطرية للشخصية والأداء الإنساني.</p>
+  <p class="s-faint">لا درجة أفضل — يوجد نمط مختلف · إجاباتك في الاستبيان لا تغادر جهازك.</p>
+  <p class="s-faint"><a href="https://github.com/maannaar16-o/Kashaf">قاعدة المعرفة والكود — مفتوحان للاطلاع</a></p>
+</footer>
+<button id="pwa-install" class="pwa-install" hidden>📲 ثبّت «الكشاف» تطبيقاً</button>
+<script>
+"use strict";
+(function(){
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(function(){});
+  var deferred = null, btn = document.getElementById("pwa-install");
+  window.addEventListener("beforeinstallprompt", function(e){
+    e.preventDefault(); deferred = e; if (btn) btn.hidden = false;
+  });
+  if (btn) btn.addEventListener("click", function(){
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.then(function(){ deferred = null; btn.hidden = true; });
+  });
+  window.addEventListener("appinstalled", function(){ if (btn) btn.hidden = true; });
+})();
+</script>
+</body>
+</html>
