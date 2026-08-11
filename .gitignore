@@ -3,3 +3,7 @@ packs.js
 k3_contentpack.py
 __pycache__/
 .claude/settings.local.json
+contrib_batch.json
+contrib_anomalies.json
+contrib_report.md
+contrib_report.json
