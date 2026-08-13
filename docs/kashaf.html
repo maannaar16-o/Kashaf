@@ -16,7 +16,7 @@
 بصمات المصادر:
   40-MEASURE_Questionnaire_v5.md: f0b4332f8999e36e
   41-Raw_Measure_v4_2.md: 51af2705a1b072b2
-  engines.js: b489e71f08198f37
+  engines.js: 8cf592d8be0bc5d9
   packs.js: dc29d54d73a11eb0
   بصمة البناء (البنود+الخرائط): 8f5a97ac0dd7fdb8
 -->
@@ -698,6 +698,18 @@ const K3 = (() => {
   const INSTRUMENT_PIN = "40 v5.0 + 41 v4.2";
   const MAX_RAW = 66;
 
+  // خريطة البنود — **تُقرأ ولا تُعرَّف** (`instrument_pin`): توأمٌ حرفي لـ
+  // `k3_engine.ITEM_MAP`، منقولةٌ من الجدول المختوم `41 §5.3` ومقابَلةٌ آلياً
+  // بفكٍّ مستقل عند كل بناء. ولا يُضاف معها حساب الخام→SP: هو في
+  // `bridge.spK3`، وتكراره يُنشئ سلطةً ثانية على معادلةٍ واحدة (`DEC-275`).
+  const ITEM_MAP = {
+    EP: [[3, "b"], [12, "a"], [20, "b"], [23, "a"], [33, "b"], [38, "a"], [51, "a"], [63, "a"], [74, "a"], [83, "a"], [88, "a"]],
+    IR: [[2, "b"], [11, "a"], [20, "a"], [35, "a"], [48, "a"], [60, "a"], [71, "a"], [80, "a"], [86, "a"], [90, "a"], [93, "a"]],
+    BI: [[2, "a"], [18, "a"], [33, "a"], [47, "a"], [59, "a"], [69, "a"], [78, "a"], [85, "a"], [89, "a"], [92, "a"], [94, "a"]],
+    CF: [[3, "a"], [11, "b"], [18, "b"], [21, "a"], [36, "a"], [50, "a"], [62, "a"], [72, "a"], [81, "a"], [87, "a"], [91, "a"]],
+    ST: [[5, "a"], [12, "b"], [21, "b"], [24, "a"], [35, "b"], [39, "a"], [47, "b"], [53, "a"], [65, "a"], [75, "a"], [84, "a"]],
+  };
+
   const SKILLS = ["EP", "IR", "BI", "CF", "ST"];       // ترتيب العرض = مسار المعالجة
   // DEC-215 — الأسماء المعتمدة للعرض بأمر مالك المشروع
   const USER_NAME = { EP: "مهارة قوة الملاحظة", IR: "مهارة التحكم الانفعالي",
@@ -1024,7 +1036,7 @@ const K3 = (() => {
     };
   }
 
-  return { ENGINE_VERSION, SPEC_VERSION, INSTRUMENT_PIN, MAX_RAW, SKILLS, USER_NAME,
+  return { ENGINE_VERSION, SPEC_VERSION, INSTRUMENT_PIN, MAX_RAW, SKILLS, USER_NAME, ITEM_MAP,
            computeSsSp, octalCode, band, pole, EDGES, CELLS, FAMILY_ORDER,
            activateCells, activeLoadChannels, recognizePatterns,
            StrictGateError, strictGateMessage,

@@ -2,7 +2,7 @@
 /* sw.js — مولَّد بـ build_site.py (DEC-251) — لا يُحرَّر يدوياً.
  * تخزين ذرّي مُصدَّر ببصمة الموقع: إما النسخة الجديدة كاملة أو القديمة كاملة.
  * النطاق: ملفات هذا الموقع نفسها حصراً — لا يمرّر ولا يخزّن أي أصل خارجي. */
-const CACHE = "kashaf-2f4cecd248709e53";
+const CACHE = "kashaf-d877fda9a6cd6606";
 const ASSETS = ["./", "./about.html", "./assets/icons/icon-192.png", "./assets/icons/icon-512-maskable.png", "./assets/icons/icon-512.png", "./assets/site.css", "./contribute.html", "./index.html", "./kashaf.html", "./manifest.json", "./method.html", "./sample.html", "./teams.html", "./theory.html"];
 
 self.addEventListener("install", (e) => {

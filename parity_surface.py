@@ -142,6 +142,22 @@ def sweep_items():
     return n, diff(canon(py), canon(js), "ITEM_MAP")
 
 
+NODE_ITEMS_K3 = 'const E=require("./engines.js");console.log(JSON.stringify(E.K3.ITEM_MAP));'
+
+
+def sweep_items_k3():
+    """`DEC-275` — خريطة $K_3$ صارت في المحرّك، **فتُقاس كأختها**: حقلٌ
+    يُضاف فاحصاً أو لا يُضاف (`00-HANDOVER §6①`). والاسم مثبَّت صراحةً كما
+    في $K_2$ — لا اكتشاف بالحدس."""
+    js = node(NODE_ITEMS_K3)
+    src = getattr(E3, "ITEM_MAP", None)
+    if src is None:
+        return None, "`ITEM_MAP` غير موجودة في `k3_engine` بهذا الاسم"
+    py = {k: [list(t) for t in v] for k, v in src.items()}
+    n = sum(len(v) for v in py.values())
+    return n, diff(canon(py), canon(js), "ITEM_MAP_K3")
+
+
 # ══ ج · مسار الخام → SP ═════════════════════════════════════════════════
 NODE_RAW = r"""
 const E = require("./engines.js");
@@ -238,6 +254,15 @@ def main():
         print("❌ ب خريطة البنود"); errs.append(f"ب/{d}")
     else:
         print(f"✅ ب خريطة البنود — {n} بنداً متطابقاً عبر الأبعاد الثمانية")
+
+    n3, d3 = sweep_items_k3()
+    if n3 is None:
+        print(f"⚠️ ب-٢ خريطة بنود K3 — {d3}")
+        errs.append(f"ب-٢: {d3}")
+    elif d3:
+        print("❌ ب-٢ خريطة بنود K3"); errs.append(f"ب-٢/{d3}")
+    else:
+        print(f"✅ ب-٢ خريطة بنود K3 — {n3} بنداً متطابقاً عبر المهارات الخمس")
 
     n, d = sweep_raw()
     print(("✅" if not d else "❌") + f" ج مسار الخام→SP — {n} شبكة")
