@@ -17,11 +17,20 @@ python3 build_packs.py                              # generates packs.js — REQ
 cp k3_contentpack_FIXED_DEC-195.py k3_contentpack.py  # legal rename
 ```
 
-Both outputs — plus `Supervisor.html` (built by `build_supervisor_html.py`) — are gitignored and must **never be committed** (`CHG-054`). Also intentionally absent from the repo: `Kashaf.html` (the questionnaire instrument, lives in conversation) and `golden_k3_PRE-DEC-215.json`. Do not add them.
+Both outputs — plus `Supervisor.html` (built by `build_supervisor_html.py`) — are gitignored and must **never be committed** (`CHG-054`, machine-checked by `gate.py`). `gate.py` performs both setup steps itself. Also intentionally absent from the repo: `Kashaf.html` (the questionnaire instrument, lives in conversation) and `golden_k3_PRE-DEC-215.json`. Do not add them.
 
 ## Verification suite — the acceptance gate
 
 All 22 tools must pass, and the five parity fingerprints must match **verbatim**. Any deviation ⇒ stop and report; do not commit.
+
+**Run the whole gate with one command — `gate.py` is the single authority** (`DEC-273`): it holds the tool list and the five expected fingerprints, matches them literally, and additionally refuses a tool that exists on disk but is not listed, a fingerprint or tool list in `CLAUDE.md`/`00-HANDOVER` that has drifted from it, and any generated artifact that has become git-tracked. CI (`.github/workflows/gate.yml`) runs exactly this on every push and PR — so never maintain a second copy of the list anywhere.
+
+```bash
+python3 gate.py                 # setup + 22 tools + 5 fingerprints + 4 gate self-checks
+python3 gate.py --list          # the list and its fingerprints, without running
+```
+
+The individual tools (run one directly to test one surface):
 
 ```bash
 python3 parity_py.py            # fingerprint 2711c24d8155819b — 125 logic cases
@@ -67,4 +76,20 @@ Each tool is a standalone script — run one directly to test one surface. `pari
 - **No temporal-difference reading** (`DEC-244`) and **no validity claims** (`DEC-246`).
 - **A field is added checking, or not added at all** (`00-HANDOVER §6①`): audit fields that report a constant instead of measuring are a rejected pattern — the sole exception is a declared non-measuring field (like `accepted_debts`).
 - Before judging any apparent spec deviation as a defect, **search the decision log first** — a sealed decision may govern it (see `120-VALID-STEPS_DEC-248.md` for the cautionary case).
-- Commit messages reference the sealed `DEC`/`CHG` numbers; acceptance for any change is the 20-tool run with fingerprints unmoved.
+- Commit messages reference the sealed `DEC`/`CHG` numbers; acceptance for any change is `python3 gate.py` green.
+- **Numbering under concurrent actors** (`DEC-274`): reading `الترقيم التالي` from `01-MASTER` is a *candidacy, not a reservation* — **the push creates the right**. If another actor took the number first, do **not** force-push: renumber your `DEC`/`CHG`/document code to the next free one, keep `01-MASTER` in chronological order (their row before yours), and record the collision in `02-MASTER`. `gate.py` fails on a duplicate number or a colliding document code, so a collision cannot merge silently.
+
+
+## AI handoff bridge (owner-authorized draft)
+
+For tasks explicitly entered by the owner in `.ai-handoff/TASK_QUEUE.json`:
+
+1. Read `.ai-handoff/README.md`, `TASK_QUEUE.json`, and `HANDOFF.json`.
+2. Work only inside the declared scope and obey every standing governance rule above.
+3. Set the task to `in_progress` when starting.
+4. Record changed files, commands, tests, blockers, and the last commit in `HANDOFF.json`.
+5. Hand completed work to Codex with `status: ready_for_codex` and `next_actor: codex`.
+6. For `changes_requested`, fix only the listed findings.
+7. Stop at `max_iterations` with `owner_decision_required`.
+
+This bridge does not authorize a governance, measurement, deployment, destructive, or merge action. Such actions still require explicit owner approval and the repository's DEC/CHG sealing process.
