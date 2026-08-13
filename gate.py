@@ -241,6 +241,36 @@ def check_numbering():
          f"متصادم: {clash}" if clash else f"{len(codes)} كوداً فريداً")
 
 
+# ── ⑥ مزامنة الديون المُعلنة — `DEC-276` ─────────────────────────────────
+SETTLEMENT_DOC = "146-SETTLEMENT_DEC-276.md"
+
+
+def check_debts():
+    """`DEC-245`/`DEC-267` صرّحا بحدٍّ: مزامنة `open_debts` بين الكود وسجلّ
+    الحوكمة **يدوية** — «لا رابط آلي بين قائمةٍ في الكود وسجلٍّ في وثيقة».
+    وهو آخر ما بقي من صنفٍ أُغلقت تجلّياته في `DEC-273`. فالقائمة تُعلَن
+    **صريحة** في وثيقة التسوية (`ن-8`: لا تُستنتج من نثر)، وتُقابَل بالمحرّك."""
+    doc = os.path.join(HERE, SETTLEMENT_DOC)
+    if not os.path.exists(doc):
+        mark(False, "وثيقة التسوية موجودة", SETTLEMENT_DOC + " غائبة")
+        return
+    m = re.search(r"^K4_OPEN_DEBTS\s*=\s*(.+)$",
+                  io.open(doc, encoding="utf-8").read(), re.M)
+    if not m:
+        mark(False, "قائمة الديون مُعلنة في الوثيقة", "سطر `K4_OPEN_DEBTS` غير موجود")
+        return
+    declared = sorted(x.strip() for x in m.group(1).split("·") if x.strip())
+    try:
+        import k4_engine as _E4
+        live = sorted(_E4.run({v: 60.0 for v in _E4.VALVES}).audit["open_debts"])
+    except Exception as e:                      # noqa: BLE001 — يُصاغ لا يُبتلع
+        mark(False, "قائمة الديون تُقرأ من المحرّك", f"{type(e).__name__}: {e}")
+        return
+    mark(declared == live, "الديون المُعلنة = ديون المحرّك",
+         f"الوثيقة {declared} · المحرّك {live}" if declared != live
+         else f"{len(live)} دَيناً متطابقاً")
+
+
 def setup():
     print("── التهيئة " + "─" * 66)
     for cmd, why in SETUP:
@@ -269,6 +299,7 @@ def main(argv):
     check_docs()
     check_generated()
     check_numbering()
+    check_debts()
     print("═" * 78)
     if FAILS:
         print(f"النتيجة: ❌ انحدار — {len(FAILS)}")
