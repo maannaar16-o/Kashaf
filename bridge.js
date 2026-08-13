@@ -8,8 +8,9 @@
  *    `K2_MAP`/`K3_MAP` القائمتين في الأداة — وقد فُحصتا مقابل
  *    `41-Raw_Measure v4.2 §5.2/§5.3` فطابقتا 1:1.
  *
- * جدار العزل (§6): تقريران منفصلان لا يتقاطعان. لا دالة هنا
- * تُمرّر قيمة من K2 إلى K3 أو العكس (DEC-205).
+ * جدار العزل (§6): تقارير منفصلة لا تتقاطع. لا دالة هنا تُمرّر قيمة من
+ * دائرة إلى أخرى (DEC-205) — وخانات الدوائر الثلاث متباينة تماماً:
+ * 56 (K2) + 55 (K3) + 77 (K4) = 188 = كل خانات الأداة (مفحوص في build_site).
  */
 (function (root) {
 
@@ -65,6 +66,22 @@
     return sp;
   }
 
+  /** sp لـK4 — سبعة صمامات · MAX_RAW = 66 (`DEC-270`).
+   *  الخريطة تُمرَّر من المحرك (`K4.ITEM_MAP`) — مصدرُ حقيقةٍ واحد،
+   *  ومطابقتُها للجدول المختوم (`41 §5.4`) مفحوصة في `build_site`. */
+  function spK4(answers, K4_MAP) {
+    const sp = {};
+    const order = ["WM", "TI", "F", "PF", "OR", "TM", "PER"];
+    for (const code of order) {
+      const items = K4_MAP[code];
+      if (!items) throw new BridgeContractError(`صمام K4 غير معرَّف: «${code}»`);
+      const v = vessel(answers, items);
+      if (v.n !== 11) throw new BridgeContractError(`K4/${code}: ${v.n} بنداً بدل 11`);
+      sp[code] = v.ss / 66 * 100.0;
+    }
+    return sp;
+  }
+
   /** فحص اكتمال الاستبيان قبل أي توليد — لا تقرير على إجابات ناقصة. */
   function missingItems(answers, maps) {
     const need = new Set();
@@ -73,7 +90,7 @@
   }
 
   root.RawahilBridge = {
-    K3_NAME_TO_CODE, vessel, spK2, spK3, missingItems, BridgeContractError,
+    K3_NAME_TO_CODE, vessel, spK2, spK3, spK4, missingItems, BridgeContractError,
   };
 
 })(typeof window !== "undefined" ? window : globalThis);

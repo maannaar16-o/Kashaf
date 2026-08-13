@@ -70,8 +70,8 @@
   }
 
   // ── التوليد ────────────────────────────────────────────────────────
-  function generate(answers, K2_MAP, K2_ORDER, K3_MAP) {
-    const result = { k2: null, k3: null, errors: [] };
+  function generate(answers, K2_MAP, K2_ORDER, K3_MAP, K4_MAP) {
+    const result = { k2: null, k3: null, k4: null, crossing: null, errors: [] };
     // كل دائرة تُولَّد على حدة — فشل إحداهما لا يُسقط الأخرى (جدار العزل)
     try {
       PK.verifyPacks();
@@ -90,6 +90,16 @@
       const [txt, audit] = RP.buildReportK3(sp3);
       result.k3 = { text: txt, audit, sp: sp3 };
     } catch (e) { result.errors.push("K3: " + e.message); }
+    // K4 — `DEC-266` رفع `DEC-186` عنها بشرطه · و`DEC-270` يُسطّحها في الأداة
+    try {
+      const sp4 = B.spK4(answers, K4_MAP);
+      const [txt, audit] = RP.buildReportK4(sp4);
+      result.k4 = { text: txt, audit, sp: sp4 };
+      // سطح القراءة العابرة — **مخرج مستقل** لا يُدمج في تقرير أي دائرة
+      // (`133 §3/①` · `138 §2`). يُصدَر فارغاً إن لم يتحقق مشغِّل.
+      const [xtxt, xaudit] = RP.buildCrossingSurface(sp4);
+      result.crossing = xtxt ? { text: xtxt, audit: xaudit } : null;
+    } catch (e) { result.errors.push("K4: " + e.message); }
     return result;
   }
 
@@ -103,10 +113,12 @@
   }
 
   function exportMd(doc, circle, name, scope) {
-    const hdr = `# تقرير ${circle === "k2" ? "التفكير" : "الانفعال"}` +
+    const CIRCLE_AR = { k2: "التفكير", k3: "الانفعال", k4: "الإنجاز", x: "قراءة عابرة" };
+    const hdr = `# تقرير ${CIRCLE_AR[circle] || circle}` +
                 (name ? ` — ${name}` : "") + (scope ? ` (${scope})` : "") + "\n\n";
     download(SPG.outputGate("\uFEFF" + hdr + doc.text, `تصدير MD · ${circle}`),
-      `تقرير-${circle === "k2" ? "التفكير-K2" : "الانفعال-K3"}${scope ? "-" + scope : ""}.md`,
+      `تقرير-${{ k2: "التفكير-K2", k3: "الانفعال-K3", k4: "الإنجاز-K4",
+                  x: "قراءة-عابرة-K4" }[circle] || circle}${scope ? "-" + scope : ""}.md`,
       "text/markdown;charset=utf-8");
   }
 
@@ -184,12 +196,12 @@
       `${circle}-تقرير-كامل.json`, "application/json;charset=utf-8");
   }
 
-  // ── لوحة K1/K4 الداخلية — DEC-186 ─────────────────────────────────
+  // ── لوحة K1 الداخلية — `DEC-186` قائم عليها وحدها بعد رفعه عن K4 (`DEC-266`)
   function InternalPanel({ report }) {
     const [open, setOpen] = useState(false);
     return React.createElement("div", { className: "rw-panel" },
       React.createElement("button", { className: "rw-toggle", onClick: () => setOpen(!open) },
-        (open ? "▾ " : "▸ ") + "لوحة تشخيصية داخلية — K1 · K4"),
+        (open ? "▾ " : "▸ ") + "لوحة تشخيصية داخلية — K1"),
       open && React.createElement("div", { className: "rw-panelbody" },
         React.createElement("blockquote", { className: "rw-warn" },
           "⚠️ [خارج نطاق التقرير — لا محرك معتمد]. أرقام خام للمراجعة الداخلية فقط، " +
@@ -197,18 +209,18 @@
         React.createElement("h4", { className: "rw-h4" }, "K1 — عدّ الاختيارات"),
         React.createElement("ul", null, (report.k1 || []).map((r, i) =>
           React.createElement("li", { key: i }, `${r.name}: ${r.count}/${r.max}`))),
-        React.createElement("h4", { className: "rw-h4" }, "K4 — صمّامات التنفيذ"),
-        React.createElement("ul", null, (report.k4 || []).map((r, i) =>
-          React.createElement("li", { key: i }, `${r.name}: SS ${r.ss}`)))));
+        React.createElement("p", { className: "rw-hint" },
+          "دائرة الإنجاز (K4) خرجت من هذه اللوحة إلى تقرير معتمد — DEC-266.")));
   }
 
   // ── التبويبان ──────────────────────────────────────────────────────
-  function DualReportView({ answers, report, name, K2_MAP, K2_ORDER, K3_MAP, onRestart }) {
+  function DualReportView({ answers, report, name, K2_MAP, K2_ORDER, K3_MAP, K4_MAP, onRestart }) {
     const [tab, setTab] = useState("k2");
     const [brief, setBrief] = useState(false);   // DEC-225/و
-    const [gen] = useState(() => generate(answers, K2_MAP, K2_ORDER, K3_MAP));
+    const [xopen, setXopen] = useState(false);   // سطح القراءة العابرة — مستقل
+    const [gen] = useState(() => generate(answers, K2_MAP, K2_ORDER, K3_MAP, K4_MAP));
 
-    if (gen.errors.length && !gen.k2 && !gen.k3) {
+    if (gen.errors.length && !gen.k2 && !gen.k3 && !gen.k4) {
       return React.createElement("div", { className: "rw-wrap" },
         React.createElement("h2", null, "تعذّر توليد التقرير"),
         React.createElement("ul", null, gen.errors.map((e, i) =>
@@ -216,8 +228,8 @@
         React.createElement("button", { className: "rw-btn", onClick: onRestart }, "العودة"));
     }
 
-    const doc = tab === "k2" ? gen.k2 : gen.k3;
-    const label = tab === "k2" ? "التفكير" : "الانفعال";
+    const doc = tab === "k2" ? gen.k2 : tab === "k3" ? gen.k3 : gen.k4;
+    const label = tab === "k2" ? "التفكير" : tab === "k3" ? "الانفعال" : "الإنجاز";
 
     return React.createElement("div", { className: "rw-wrap", dir: "rtl" },
       // شريط التبويبين — لا محتوى مشترك بينهما
@@ -227,10 +239,13 @@
         }, "تقرير التفكير (K2)"),
         React.createElement("button", {
           className: "rw-tab" + (tab === "k3" ? " on" : ""), onClick: () => setTab("k3"),
-        }, "تقرير الانفعال (K3)")),
+        }, "تقرير الانفعال (K3)"),
+        React.createElement("button", {
+          className: "rw-tab" + (tab === "k4" ? " on" : ""), onClick: () => setTab("k4"),
+        }, "تقرير الإنجاز (K4)")),
 
       React.createElement("blockquote", { className: "rw-note" },
-        "التقريران مستندان منفصلان يُقرأ كلٌّ منهما وحده. لا يُقابَل بند من أحدهما ببند من الآخر."),
+        "التقارير الثلاثة مستندات منفصلة يُقرأ كلٌّ منها وحده. لا يُقابَل بند من أحدها ببند من الآخر."),
 
       gen.errors.length ? React.createElement("blockquote", { className: "rw-warn" },
         "⚠️ " + gen.errors.join(" · ")) : null,
@@ -258,6 +273,23 @@
         }, "⬇ Markdown مختصر") : null,
         React.createElement("button", { className: "rw-btn ghost", onClick: () => exportJson(doc, tab, name) }, "⬇ JSON"),
         React.createElement("button", { className: "rw-btn ghost", onClick: () => exportPrint(doc, tab, name) }, "🖨 طباعة / PDF")),
+
+      // سطح القراءة العابرة — **مخرج مستقل**: كتلة خارج متن أي تقرير،
+      // ولا تظهر إلا إن تحقق مشغِّلها من نطاقات K4 وحدها (`138 §2/①`).
+      gen.crossing && React.createElement("div", { className: "rw-panel" },
+        React.createElement("button", {
+          className: "rw-toggle", onClick: () => setXopen(!xopen),
+        }, (xopen ? "▾ " : "▸ ") + "قراءة عابرة — سطح مستقل"),
+        xopen && React.createElement("div", { className: "rw-panelbody" },
+          React.createElement("blockquote", { className: "rw-note" },
+            "سطحٌ مستقل لا يُدمج في متن أي تقرير، ولا يحمل درجةً من دائرة أخرى."),
+          React.createElement("div", { className: "rw-doc" },
+            mdToNodes(gen.crossing.text, "x")),
+          React.createElement("div", { className: "rw-actions" },
+            React.createElement("button", {
+              className: "rw-btn ghost",
+              onClick: () => exportMd(gen.crossing, "x", name),
+            }, "⬇ Markdown — السطح العابر")))),
 
       report && React.createElement(InternalPanel, { report }),
 

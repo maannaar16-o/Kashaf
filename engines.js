@@ -599,6 +599,20 @@ const K4 = (() => {
     PER: "المثابرة وإكمال المهام",
   };
 
+
+  // خريطة الأوعية — منقولة من الجدول المختوم (`41 §5.4` ≡ `14-CORE-K4 §4`).
+  // تُقرأ ولا تُعرَّف · قيد التكافؤ: صفّ `K4-SP` يُقرأ `PER` (`128 §1`).
+  // المطابقة مفحوصة في `build_site.validate_maps`.
+  const ITEM_MAP = {
+    WM:   [[5, "b"], [14, "a"], [23, "b"], [26, "a"], [36, "b"], [41, "a"], [48, "b"], [54, "a"], [59, "b"], [66, "a"], [77, "a"]],
+    TI:   [[6, "b"], [15, "a"], [26, "b"], [29, "a"], [39, "b"], [44, "a"], [51, "b"], [57, "a"], [62, "b"], [71, "b"], [78, "b"]],
+    F:    [[6, "a"], [14, "b"], [24, "b"], [27, "a"], [38, "b"], [42, "a"], [50, "b"], [56, "a"], [60, "b"], [68, "a"], [69, "b"]],
+    PF:   [[8, "a"], [15, "b"], [27, "b"], [30, "a"], [41, "b"], [45, "a"], [53, "b"], [63, "b"], [72, "b"], [80, "b"], [85, "b"]],
+    OR:   [[8, "b"], [17, "a"], [29, "b"], [32, "a"], [42, "b"], [54, "b"], [65, "b"], [74, "b"], [81, "b"], [86, "b"], [89, "b"]],
+    TM:   [[9, "a"], [17, "b"], [30, "b"], [44, "b"], [56, "b"], [66, "b"], [75, "b"], [83, "b"], [87, "b"], [90, "b"], [92, "b"]],
+    PER:  [[9, "b"], [32, "b"], [45, "b"], [57, "b"], [68, "b"], [77, "b"], [84, "b"], [88, "b"], [91, "b"], [93, "b"], [94, "b"]],
+  };
+
   /** نظير `_num` البايثوني — صريح عمداً (`DEC-235`). */
   function _num(v) {
     const f = Number(v);
@@ -820,7 +834,7 @@ const K4 = (() => {
     return { audit, gap_report: outValves.length > 0 };
   }
 
-  return { ENGINE_VERSION, SPEC_VERSION, INSTRUMENT_PIN, MAX_RAW, VALVES, USER_NAME,
+  return { ENGINE_VERSION, SPEC_VERSION, INSTRUMENT_PIN, MAX_RAW, VALVES, USER_NAME, ITEM_MAP,
            computeSsSp, octalCode, band, state, BAND_RANK,
            CONSTRAINTS, activateConstraints, recognizePatterns,
            interruptionPoints, bottleneck, chokeReadings,

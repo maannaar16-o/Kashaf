@@ -11,7 +11,7 @@ test_site_build.py — حرس بناء الموقع والأداة (البواب
 فحوصه — وكلٌّ **يقيس ما يعلنه**:
   ① اكتمال التشييم — صفر `require(` في الحزمة الموحَّدة (الانكسار عينه)
   ② صفر تصدير عقدة متسرّب إلى المتصفح
-  ③ `K4` **محمَّل ولا مُسطَّح** — بحكم البند ① من أمر المالك
+  ③ `K4` **موصولٌ بالأداة** — تبويبه وسطحه العابر وحزمته ومصدر خريطته
   ④ `docs/` **مزامنة** مع بناءٍ طازج — فلا تقادم يمرّ صامتاً
 """
 import io
@@ -62,24 +62,32 @@ def test_shim_completeness():
     return mods
 
 
-# ── ③ K4 محمَّل ولا مُسطَّح — البند ① من أمر المالك ───────────────────────
-def test_k4_loaded_not_surfaced(mods):
+# ── ③ K4 موصولٌ بالأداة — بعد تنفيذ البندين ② و③ (`DEC-270`) ────────────
+def test_k4_wired(mods):
     if not mods:
         check("فحوص K4 على الحزمة", False, "الحزمة لم تُجمَّع — الفحص متعذّر")
         return
     check("محرك K4 محمَّل في الحزمة",
           "window.RawahilEngines = { K2, K3, K4," in mods, "الوحدة حاضرة")
-    check("حزمة K4 مشيَّمة صريحاً إلى null",
-          'window.RawahilK4Pack) || null' in mods,
-          "لا حزمة ⇒ خطأ مكتوب لا فشل صامت")
-    check("رسالة الرفض مكتوبة",
-          "حزمة K4 غير محمَّلة" in mods, "لا تقرير بلا حزمة")
+    check("حزمة K4 مشيَّمة إلى `packs.js`",
+          "PK.PACKS.CONTENT_K4) || null" in mods,
+          "مصدر حقيقة واحد — لا نسخة ثانية")
+    check("رسالة الرفض باقية نافذة",
+          "حزمة K4 غير محمَّلة" in mods, "غياب الحزمة يوقف الإصدار")
 
-    # لا سطح لـK4 في التطبيق — البند ③ مؤجَّل بأمر المالك
-    app = BS.read("site", "app", "app.js")
-    surfaced = ("buildReportK4" in app) or ("buildCrossingSurface" in app)
-    check("K4 غير مُسطَّح في التطبيق", not surfaced,
-          "البند ③ مؤجَّل — لا تبويب ولا تصدير")
+    # الوصل — الأداة تعرض التقرير الثالث والسطح العابر
+    kashaf = BS.read("docs", "kashaf.html")
+    for label, needle in (("تبويب K4", "تقرير الإنجاز (K4)"),
+                          ("كتلة السطح العابر", "قراءة عابرة — سطح مستقل"),
+                          ("جسر spK4", "function spK4"),
+                          ("حزمة K4 في المخرج", "CONTENT_K4")):
+        check(f"موصول: {label}", needle in kashaf)
+
+    # لوحة `DEC-186` صارت K1 وحدها — والتصريح مكتوب
+    check("لوحة DEC-186 لـK1 وحدها",
+          "لوحة تشخيصية داخلية — K1" in kashaf
+          and "دائرة الإنجاز (K4) خرجت من هذه اللوحة" in kashaf,
+          "K4 خرجت إلى تقرير معتمد")
 
 
 # ── ④ docs/ مزامنة مع بناء طازج — لا تقادم صامت ─────────────────────────
@@ -131,7 +139,7 @@ def test_docs_in_sync():
 if __name__ == "__main__":
     print("=" * 76)
     mods = test_shim_completeness()
-    test_k4_loaded_not_surfaced(mods)
+    test_k4_wired(mods)
     test_docs_in_sync()
     print("-" * 76)
     if FAILS:

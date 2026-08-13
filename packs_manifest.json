@@ -58,5 +58,10 @@
   "file": "k2_lock_registry.json",
   "sha256": "ad50b64f48ebc5d309873b3535f56aa9f9c96369cf729e840c5a37a440d947b6",
   "bytes": 943
+ },
+ "CONTENT_K4": {
+  "file": "k4_contentpack.json",
+  "sha256": "a3d413c11d58061b396cd763fae93265bccfba15d2669ef502a81b217f93670a",
+  "bytes": 17915
  }
 }

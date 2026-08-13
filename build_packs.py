@@ -28,6 +28,7 @@ PACKS = [
     ("INTENSITY_K2", "k2_intensity.json",      "R1 — كتل الشدة (64 كتلة · 55-USER-INT8-*)"),
     ("LOOKALIKE_K2", "k2_lookalike.json",      "R8/R11 — مصفوفة التمييز (7 أزواج · 51-MATRIX-05)"),
     ("LOCKREG_K2",   "k2_lock_registry.json",  "DEC-229 — سجلّ الذِكر المقبول داخل حقول القفل"),
+    ("CONTENT_K4",   "k4_contentpack.json",    "55-USER-K4-* + 136/138 — حزمة دائرة الإنجاز (DEC-270)"),
 ]
 
 
