@@ -640,9 +640,137 @@ function buildReportK3Head(sp) {
   return [SPG.outputGate(full.slice(0, stop).join("\n"), "ترويسة K3"), {}];
 }
 
+
+// ═════════════════════════════════════════════════════════════ K4 ═══════
+/**
+ * توأم `k4_report.py` — عقد التقرير مختوم في `136-K4-ENGINE §3` (`DEC-266`).
+ * يجمّع ولا يؤلّف: كل سطر من `k4_contentpack.json` أو من المحرك.
+ * الحزمة تُمرَّر من الخارج (الطرفان يقرآن الملف نفسه) — لا نسخة ثانية للنص.
+ */
+const { K4 } = require("./engines.js");
+
+function k4BandLabel(pack, b) {
+  const lbl = pack.band_label[b];
+  if (!lbl) throw new Error(`نطاق غير معتمد «${b}» — لا وسم افتراضي (ن-7/④)`);
+  return lbl;
+}
+
+function buildReportK4(sp, pack) {
+  if (!pack) pack = require("./k4_contentpack.json");
+  const res = K4.run(sp);
+  const a = res.audit;
+  const L = [];
+  let n = 0;
+  const head = (key) => { n += 1; L.push(`## ${AR_NUM[n - 1]} · ${pack.heading[key]}`); L.push(""); };
+  const NAME = K4.USER_NAME;
+
+  // ⓪ إخطار الفجوة — ر-5
+  if (a.gap_report) L.push("> ⚠️ " + pack.notice.gap, "");
+
+  // ① لوحة المحطات
+  head("panel");
+  L.push(pack.notice.order, "");
+  for (const v of K4.VALVES) {
+    const b = a.bands[v];
+    L.push(`### ${NAME[v]} — ${k4BandLabel(pack, b)}`, "", pack.valve[v].U01, "");
+    if (b === "core" || b === "high") L.push(pack.valve[v].U03, "");
+    else if (b === "limited") L.push(pack.valve[v].U04, "");
+  }
+
+  // ② مواضع الانقطاع
+  const pts = a.interruption_points;
+  if (pts.length) {
+    head("interruption");
+    for (const v of pts) L.push(`**${NAME[v]}** — ` + pack.valve[v].U05, "");
+  }
+
+  // ③ المحطة الأدنى — ر-4
+  const bn = a.bottleneck;
+  if (bn.valves.length) {
+    head("bottleneck");
+    if (bn.tie) L.push("> " + pack.notice.tie, "");
+    const names = bn.valves.map((v) => NAME[v]).join("، ");
+    L.push(`**${names}** — ${k4BandLabel(pack, bn.band)}`, "");
+    if (a.choke_readings.every((c) => c.reading === "وصف موضع")) {
+      L.push(pack.notice.choke_plain, "");
+    }
+  }
+
+  // ④ الشبكة
+  if (a.constraint_map.length) {
+    head("network");
+    for (const c of a.constraint_map) {
+      const arrow = c.mutual ? "×" : "←";
+      L.push(`- **${c.kind}** · ${NAME[c.a]} ${arrow} ${NAME[c.b]}`);
+    }
+    L.push("");
+  }
+
+  // ⑤ تحفّظ القراءة — ر-3: كتلة واحدة
+  const inv = {};
+  Object.keys(K4.RESERVE_CODE).forEach((v) => { inv[K4.RESERVE_CODE[v]] = v; });
+  if (a.reading_reserve.length) {
+    head("reserve");
+    L.push(pack.reserve.opening, "");
+    for (const code of a.reading_reserve) {
+      const v = inv[code];
+      L.push(`- **${NAME[v]}** — ` + pack.reserve[v]);
+    }
+    L.push("");
+  }
+
+  // ⑥ أسئلة الفرز
+  if (a.lookalike_flags.length) {
+    head("lookalike");
+    L.push(pack.notice.lookalike_lead, "");
+    for (const code of a.lookalike_flags) L.push("- " + pack.lookalike[code]);
+    L.push("");
+  }
+
+  // ⑦ التدريبات
+  if (pts.length) {
+    head("training");
+    L.push(pack.notice.training_lead, "");
+    for (const v of pts) {
+      const t = pack.training[v];
+      if (t === undefined) L.push(`- **${NAME[v]}** — ` + pack.training_void[v]);
+      else L.push(`- **${NAME[v]}** — ` + t);
+    }
+    L.push("");
+  }
+
+  // ⑧ بصمة القراءة — تصيير مطابق لـ json.dumps(sort_keys=True, indent=1)
+  head("audit");
+  L.push("```", jsonPy(a, 1), "```");
+
+  const body = L.join("\n");
+  SPG.outputGate(body, "تقرير K4");
+  const audit = Object.assign({}, a, { sections_rendered: n });
+  return [body, audit];
+}
+
+/** تصيير JSON بترتيب مفاتيح وبمسافة بادئة — نظير `json.dumps(..., sort_keys=True, indent=N)`. */
+function jsonPy(v, indent, level) {
+  level = level || 0;
+  const pad = " ".repeat(indent * (level + 1));
+  const padEnd = " ".repeat(indent * level);
+  if (v === null || v === undefined) return "null";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "number") return Number.isInteger(v) ? `${v}.0` : String(v);
+  if (typeof v === "string") return JSON.stringify(v);
+  if (Array.isArray(v)) {
+    if (!v.length) return "[]";
+    return "[\n" + v.map((x) => pad + jsonPy(x, indent, level + 1)).join(",\n") + "\n" + padEnd + "]";
+  }
+  const keys = Object.keys(v).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  if (!keys.length) return "{}";
+  return "{\n" + keys.map((k) => pad + JSON.stringify(k) + ": " + jsonPy(v[k], indent, level + 1)).join(",\n")
+         + "\n" + padEnd + "}";
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
-    buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
+    buildReportK4, k4BandLabel, jsonPy, buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
     purGate, purScanPacks, t6Guard, scanLockFields, scanLockDrift, intensityBlock, stripLocks, r11Block, buildReportK3, buildReportK3Head, dropHeading, bandLabel, altName, skillHeading, BAND_LABEL,
     verifyPacks, K2_CONTENT_ADAPTER, K3_EXTERNAL_CONTRACT, k3MissingContent, K3_CONTENT_ADAPTER,
   };
