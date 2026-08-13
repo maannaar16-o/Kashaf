@@ -1,0 +1,30 @@
+name: AI Handoff Validate
+
+on:
+  pull_request:
+    paths:
+      - ".ai-handoff/**"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - "scripts/validate_ai_handoff.py"
+      - ".github/workflows/ai-handoff-validate.yml"
+  push:
+    paths:
+      - ".ai-handoff/**"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - "scripts/validate_ai_handoff.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate handoff files
+        run: python3 scripts/validate_ai_handoff.py

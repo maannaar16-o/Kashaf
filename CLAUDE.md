@@ -68,3 +68,18 @@ Each tool is a standalone script — run one directly to test one surface. `pari
 - **A field is added checking, or not added at all** (`00-HANDOVER §6①`): audit fields that report a constant instead of measuring are a rejected pattern — the sole exception is a declared non-measuring field (like `accepted_debts`).
 - Before judging any apparent spec deviation as a defect, **search the decision log first** — a sealed decision may govern it (see `120-VALID-STEPS_DEC-248.md` for the cautionary case).
 - Commit messages reference the sealed `DEC`/`CHG` numbers; acceptance for any change is the 20-tool run with fingerprints unmoved.
+
+
+## AI handoff bridge (owner-authorized draft)
+
+For tasks explicitly entered by the owner in `.ai-handoff/TASK_QUEUE.json`:
+
+1. Read `.ai-handoff/README.md`, `TASK_QUEUE.json`, and `HANDOFF.json`.
+2. Work only inside the declared scope and obey every standing governance rule above.
+3. Set the task to `in_progress` when starting.
+4. Record changed files, commands, tests, blockers, and the last commit in `HANDOFF.json`.
+5. Hand completed work to Codex with `status: ready_for_codex` and `next_actor: codex`.
+6. For `changes_requested`, fix only the listed findings.
+7. Stop at `max_iterations` with `owner_decision_required`.
+
+This bridge does not authorize a governance, measurement, deployment, destructive, or merge action. Such actions still require explicit owner approval and the repository's DEC/CHG sealing process.

@@ -1,0 +1,38 @@
+{
+  "protocol_version": "1.0",
+  "project": "Kashaf",
+  "updated_at": "2026-08-13T00:00:00Z",
+  "active_task_id": null,
+  "tasks": [
+    {
+      "id": "KASHAF-AI-BRIDGE-DEMO-001",
+      "title": "اختبار دورة التسليم بين Claude Code وCodex",
+      "objective": "التحقق من أن كلا الوكيلين يستطيع قراءة البروتوكول وتحديث ملفات التسليم دون تعديل ملفات المشروع.",
+      "scope": {
+        "allowed_paths": [
+          ".ai-handoff/"
+        ],
+        "forbidden_paths": [
+          "measurement/**",
+          "governance/**"
+        ]
+      },
+      "acceptance_criteria": [
+        "قراءة CLAUDE.md وAGENTS.md",
+        "تحديث HANDOFF.json بتسليم تجريبي صالح",
+        "اجتياز مدقق handoff"
+      ],
+      "status": "queued",
+      "next_actor": "claude",
+      "iteration": 0,
+      "max_iterations": 3,
+      "owner_approval_required_for": [
+        "governance_change",
+        "measurement_change",
+        "public_deploy",
+        "destructive_action",
+        "merge"
+      ]
+    }
+  ]
+}
