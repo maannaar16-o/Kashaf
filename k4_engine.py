@@ -292,8 +292,10 @@ def run(sp, content=None, strict=False):
         # حقول إعلانية مصرَّح بعدم قياسها (`00-HANDOVER §6①` — الاستثناء المعلَن)
         "accepted_debts": ["RSK-018(41)", "GAP-Q-07:9ب≈94ب",
                            "GAP-Q-07:41ب≈45أ", "GAP-Q-07:14ب≈27أ"],
-        "open_debts": ["GAP-K4-FR-CORE", "GAP-X-EXH-01",
-                       "GAP-K4-FR-04", "GAP-K4-CASES-01"],
+        # مُزامَنة مع سجل التسوية (`DEC-267` · `137 §8`): `GAP-K4-CASES-01`
+        # دُمجت في `DEBT-K4-FIELD-01` — والمزامنة يدوية مصرَّح بها.
+        "open_debts": ["DEBT-K4-FIELD-01", "GAP-K4-FR-CORE",
+                       "GAP-X-EXH-01", "GAP-K4-FR-04"],
     }
     return Result(audit=audit, gap_report=bool(out_valves))
 

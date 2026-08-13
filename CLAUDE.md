@@ -27,7 +27,7 @@ All 19 tools must pass, and the four parity fingerprints must match **verbatim**
 python3 parity_py.py            # fingerprint 2711c24d8155819b — 125 logic cases
 python3 parity_reports.py       # fingerprint 36ae94bfd5a8b60f — 142 reports
 python3 parity_supervisor.py    # fingerprint 6b324f996856eac3 — 429 supervisor grades
-python3 parity_k4.py            # fingerprint 8fa51aecbed95e69 — 260 K4 cases (logic + report text)
+python3 parity_k4.py            # fingerprint c25b3722960bb7f3 — 260 K4 cases (logic + report text)
 python3 parity_messages.py      # exception-message parity, 15 paths
 python3 parity_isolation.py     # isolation-audit parity, 826 texts
 python3 parity_surface.py       # systematic surface sweep, 3214 fields
