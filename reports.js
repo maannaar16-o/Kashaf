@@ -18,7 +18,7 @@
  *   GAP-RPT-K2-01/02/03 · RSK-DUP-01.
  */
 
-const { K2, K3 } = require("./engines.js");
+const { K2, K3, K4 } = require("./engines.js");
 const PK = require("./packs.js");
 const { PACKS, verifyPacks } = PK;
 const SPG = require("./sp_gate.js");   // ح-4 · DEC-183 · ن-7
@@ -640,9 +640,209 @@ function buildReportK3Head(sp) {
   return [SPG.outputGate(full.slice(0, stop).join("\n"), "ترويسة K3"), {}];
 }
 
+
+// ═════════════════════════════════════════════════════════════ K4 ═══════
+/**
+ * توأم `k4_report.py` — عقد التقرير مختوم في `136-K4-ENGINE §3` (`DEC-266`).
+ * يجمّع ولا يؤلّف: كل سطر من `k4_contentpack.json` أو من المحرك.
+ * الحزمة تُمرَّر من الخارج (الطرفان يقرآن الملف نفسه) — لا نسخة ثانية للنص.
+ */
+/** نظير `fill_pair` البايثوني — **صريح عمداً** (`ن-8`): `split/join`
+ *  يبدّل **كل** المواضع، و`replace` بنصٍّ يبدّل أولها فقط. */
+function fillPair(tpl, a, b) {
+  return tpl.split("{أ}").join(a).split("{ب}").join(b);
+}
+
+// حزمة K4 — **سطر استيراد واحد قابل للتشييم** (بدل استيراد داخل كل دالّة).
+// في المتصفح يُشيَّم إلى `window.RawahilK4Pack`، وهو `null` حتى تُضمَّ الحزمة
+// إلى `packs.js` — فيُرفع خطأ مكتوب بدل إصدار تقرير بلا حزمة.
+const K4_PACK = require("./k4_contentpack.json");
+
+function k4RequirePack(pack) {
+  const p = pack || K4_PACK;
+  if (!p) throw new Error(
+    "حزمة K4 غير محمَّلة — لا تقرير بلا حزمة (صفر تأليف · DEC-266)");
+  return p;
+}
+
+function k4BandLabel(pack, b) {
+  const lbl = pack.band_label[b];
+  if (!lbl) throw new Error(`نطاق غير معتمد «${b}» — لا وسم افتراضي (ن-7/④)`);
+  return lbl;
+}
+
+function buildReportK4(sp, pack) {
+  pack = k4RequirePack(pack);
+  const res = K4.run(sp);
+  const a = res.audit;
+  const L = [];
+  let n = 0;
+  const head = (key) => { n += 1; L.push(`## ${AR_NUM[n - 1]} · ${pack.heading[key]}`); L.push(""); };
+  const NAME = K4.USER_NAME;
+
+  // ⓪ إخطار الفجوة — ر-5
+  if (a.gap_report) L.push("> ⚠️ " + pack.notice.gap, "");
+
+  // ① لوحة المحطات
+  head("panel");
+  L.push(pack.notice.order, "");
+  for (const v of K4.VALVES) {
+    const b = a.bands[v];
+    L.push(`### ${NAME[v]} — ${k4BandLabel(pack, b)}`, "", pack.valve[v].U01, "");
+    if (b === "core" || b === "high") L.push(pack.valve[v].U03, "");
+    else if (b === "limited") L.push(pack.valve[v].U04, "");
+  }
+
+  // ② مواضع الانقطاع — مُثرىً بالسطح المركَّب (`138 §3/②`)
+  const pts = a.interruption_points;
+  const C = pack.composed;
+  if (pts.length) {
+    head("interruption");
+    if (pts.length > 1) L.push(C.interruption_multi, "");
+    for (const v of pts) L.push(`**${NAME[v]}** — ` + pack.valve[v].U05, "");
+  }
+
+  // ③ المحطة الأدنى — ر-4
+  const bn = a.bottleneck;
+  if (bn.valves.length) {
+    head("bottleneck");
+    if (bn.tie) L.push("> " + pack.notice.tie, "");
+    const names = bn.valves.map((v) => NAME[v]).join("، ");
+    L.push(`**${names}** — ${k4BandLabel(pack, bn.band)}`, "");
+    L.push(C.bottleneck_meaning, "");
+    if (bn.tie) L.push(C.bottleneck_tie, "");
+    if (a.choke_readings.every((c) => c.reading === "وصف موضع")) {
+      L.push(pack.notice.choke_plain, "");
+    }
+  }
+
+  // ④ الشبكة والأنماط — مُثرىً بالسطح المركَّب (`138 §3/②-③`)
+  if (a.constraint_map.length || a.patterns_recognized.length) {
+    head("network");
+    if (a.constraint_map.length) {
+      L.push(C.network_lead, "");
+      for (const c of a.constraint_map) {
+        const arrow = c.mutual ? "×" : "←";
+        L.push(`- **${c.kind}** · ${NAME[c.a]} ${arrow} ${NAME[c.b]}`);
+        L.push("  " + fillPair(C.kind[c.kind], NAME[c.a], NAME[c.b]));
+      }
+      L.push("", C.network_limit, "");
+    }
+    // الأنماط داخل القسم نفسه — لا قسم ثالث (`138 §3/③`)
+    if (a.patterns_recognized.length) {
+      for (const code of a.patterns_recognized) L.push("- " + C.pattern[code]);
+      L.push("", C.pattern_limit, "");
+    }
+  }
+
+  // ⑤ تحفّظ القراءة — ر-3: كتلة واحدة
+  const inv = {};
+  Object.keys(K4.RESERVE_CODE).forEach((v) => { inv[K4.RESERVE_CODE[v]] = v; });
+  if (a.reading_reserve.length) {
+    head("reserve");
+    L.push(pack.reserve.opening, "");
+    for (const code of a.reading_reserve) {
+      const v = inv[code];
+      L.push(`- **${NAME[v]}** — ` + pack.reserve[v]);
+    }
+    L.push("");
+  }
+
+  // ⑥ أسئلة الفرز
+  if (a.lookalike_flags.length) {
+    head("lookalike");
+    L.push(pack.notice.lookalike_lead, "");
+    for (const code of a.lookalike_flags) L.push("- " + pack.lookalike[code]);
+    L.push("");
+  }
+
+  // ⑦ التدريبات
+  if (pts.length) {
+    head("training");
+    L.push(pack.notice.training_lead, "");
+    for (const v of pts) {
+      const t = pack.training[v];
+      if (t === undefined) L.push(`- **${NAME[v]}** — ` + pack.training_void[v]);
+      else L.push(`- **${NAME[v]}** — ` + t);
+    }
+    L.push("");
+  }
+
+  // ⑧ بصمة القراءة — تصيير مطابق لـ json.dumps(sort_keys=True, indent=1)
+  head("audit");
+  L.push("```", jsonPy(a, 1), "```");
+
+  // كتلة التدقيق تُكمَل **بعد** تصيير المتن — فلا يدخل ما يوصفها في ما تصفه.
+  // و`pack_sha`/`report_sha256` **حقلان ملزمان** في `136 §3/④`: كانا حاضرين
+  // في بايثون وغائبين هنا، والقياس القائم لم يكشفهما لأنه يقارن كتلة
+  // **المحرك** ونصّ التقرير — لا كتلة تدقيق التقرير (رُصد ببناء `DEC-271`).
+  const audit = Object.assign({}, a, { sections_rendered: n });
+  audit.pack_sha = { CONTENT_K4: _shaObj(pack) };
+  const body = L.join("\n");
+  SPG.outputGate(body, "تقرير K4");
+  audit.report_sha256 = PK._sha256(body).slice(0, 16);
+  return [body, audit];
+}
+
+// سطح القراءة العابرة — **مخرج مستقل** (`138 §2`)
+// مشغِّله نطاقات K4 وحدها — لا يدخله رقم ولا نطاق من دائرة أخرى.
+const CROSSING_TRIGGERS = [
+  ["K4-XR-02", ["TI"]],
+  ["K4-XR-05", ["TI"]],
+  ["K4-XR-06", ["TI"]],
+  ["K4-XR-04", ["PER"]],
+  ["K4-XR-08", ["OR", "TM", "PF"]],
+];
+
+function crossingEntries(sp) {
+  const out = [];
+  for (const [code, valves] of CROSSING_TRIGGERS) {
+    if (valves.some((v) => K4.band(sp[v]) === "limited")) out.push(code);
+  }
+  return out.length ? ["K4-XR-03"].concat(out) : [];
+}
+
+/** يُصدَر **مستقلاً** — ولا يُستدعى من `buildReportK4` أبداً. */
+function buildCrossingSurface(sp, pack) {
+  pack = k4RequirePack(pack);
+  const codes = crossingEntries(sp);
+  if (!codes.length) return ["", { surface: "crossing", entries: [], rendered: false }];
+  const cr = pack.crossing;
+  const L = [`# ${cr.heading}`, "", cr.lead, ""];
+  for (const code of codes) L.push("- " + cr.entry[code]);
+  L.push("", cr.closing);
+  const body = L.join("\n");
+  SPG.outputGate(body, "سطح القراءة العابرة K4");
+  const audit = { surface: "crossing", entries: codes, rendered: true,
+                  spec_version: "138-K4-SURFACES v1.0" };
+  // `PK._sha256` سها-256 حقيقي مُصدَّر من `packs.js` — يعمل في البيئتين،
+  // وقيمته مطابقة لـ`crypto` حرفياً (مفحوص). فلا مسار خاص بالعقدة.
+  audit.surface_sha256 = PK._sha256(body).slice(0, 16);
+  return [body, audit];
+}
+
+/** تصيير JSON بترتيب مفاتيح وبمسافة بادئة — نظير `json.dumps(..., sort_keys=True, indent=N)`. */
+function jsonPy(v, indent, level) {
+  level = level || 0;
+  const pad = " ".repeat(indent * (level + 1));
+  const padEnd = " ".repeat(indent * level);
+  if (v === null || v === undefined) return "null";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "number") return Number.isInteger(v) ? `${v}.0` : String(v);
+  if (typeof v === "string") return JSON.stringify(v);
+  if (Array.isArray(v)) {
+    if (!v.length) return "[]";
+    return "[\n" + v.map((x) => pad + jsonPy(x, indent, level + 1)).join(",\n") + "\n" + padEnd + "]";
+  }
+  const keys = Object.keys(v).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  if (!keys.length) return "{}";
+  return "{\n" + keys.map((k) => pad + JSON.stringify(k) + ": " + jsonPy(v[k], indent, level + 1)).join(",\n")
+         + "\n" + padEnd + "}";
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
-    buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
+    buildReportK4, buildCrossingSurface, crossingEntries, k4BandLabel, fillPair, k4RequirePack, jsonPy, buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
     purGate, purScanPacks, t6Guard, scanLockFields, scanLockDrift, intensityBlock, stripLocks, r11Block, buildReportK3, buildReportK3Head, dropHeading, bandLabel, altName, skillHeading, BAND_LABEL,
     verifyPacks, K2_CONTENT_ADAPTER, K3_EXTERNAL_CONTRACT, k3MissingContent, K3_CONTENT_ADAPTER,
   };

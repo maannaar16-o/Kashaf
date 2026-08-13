@@ -17,25 +17,30 @@ python3 build_packs.py                              # generates packs.js — REQ
 cp k3_contentpack_FIXED_DEC-195.py k3_contentpack.py  # legal rename
 ```
 
-Both outputs are gitignored and must **never be committed** (`CHG-054`). Also intentionally absent from the repo: `Kashaf.html` (the questionnaire instrument, lives in conversation) and `golden_k3_PRE-DEC-215.json`. Do not add them.
+Both outputs — plus `Supervisor.html` (built by `build_supervisor_html.py`) — are gitignored and must **never be committed** (`CHG-054`). Also intentionally absent from the repo: `Kashaf.html` (the questionnaire instrument, lives in conversation) and `golden_k3_PRE-DEC-215.json`. Do not add them.
 
 ## Verification suite — the acceptance gate
 
-All 16 tools must pass, and the three parity fingerprints must match **verbatim**. Any deviation ⇒ stop and report; do not commit.
+All 22 tools must pass, and the five parity fingerprints must match **verbatim**. Any deviation ⇒ stop and report; do not commit.
 
 ```bash
 python3 parity_py.py            # fingerprint 2711c24d8155819b — 125 logic cases
 python3 parity_reports.py       # fingerprint 36ae94bfd5a8b60f — 142 reports
 python3 parity_supervisor.py    # fingerprint 6b324f996856eac3 — 429 supervisor grades
+python3 parity_k4.py            # fingerprint e32207bbb8853560 — 387 K4 cases (logic + report + its audit block + crossing surface)
+python3 parity_supervisor_k4.py # fingerprint a0f83d78b8adbf53 — 982 supervisor grades on K4
 python3 parity_messages.py      # exception-message parity, 15 paths
 python3 parity_isolation.py     # isolation-audit parity, 826 texts
 python3 parity_surface.py       # systematic surface sweep, 3214 fields
-python3 verify_regen.py         # regeneration contract, 86 cases
+python3 verify_regen.py         # regeneration contract, 213 cases (all three circles)
 python3 test_packs.py
 python3 test_golden_k2.py       ;  python3 test_golden_k3.py
 python3 test_report_k2.py       ;  python3 test_report_k3.py
 python3 test_guard_sp.py        ;  python3 test_guard_lock.py
 python3 guard_interp.py
+python3 test_report_k4.py       ;  python3 k4_content.py
+python3 test_site_build.py      # site/app build guard — also verifies docs/ is not stale
+python3 test_supervisor_build.py # supervisor-tool build guard — *executes* the generated bundle
 python3 supervisor.py --self-test
 ```
 
@@ -45,11 +50,13 @@ Each tool is a standalone script — run one directly to test one surface. `pari
 
 **Dual implementation with measured parity.** Every engine/report/supervisor behavior exists twice — Python (`k2_engine.py`, `k3_engine.py`, `k2_report.py`, `k3_report.py`, `supervisor.py`) and JS (`engines.js`, `reports.js`, `supervisor_core.js`) — because the JS side is embedded in browser tools. The governing rule (`DEC-199`/`DEC-200`): every textual or logic change is made **in both versions**, then parity is measured; a single divergence freezes both sides — neither is preferred. Output surfaces are compared literally (including number formatting: explicit `_round2`/`.toFixed(1)`-style rendering, never language-default serialization — `ن-8`).
 
+**Three circles, isolation enforced.** K4 (dائرة الإنجاز — seven executive valves WM/TI/F/PF/OR/TM/PER) was built across phases 0–8 (`DEC-257…266`) and now has its own twin engine (`k4_engine.py` + the `K4` module in `engines.js`), report builder (`k4_report.py` + `buildReportK4` in `reports.js`), content pack (`k4_contentpack.json`, zero-authoring — every string is verified to exist literally in its sealed source doc) and parity tool. `DEC-186` was lifted for K4 only (`DEC-266`) and K4 is now surfaced in the tool as a third report tab with its own crossing-reading surface (`DEC-270`); K1 remains an internal panel. The three circles partition the instrument exactly: 56 + 55 + 77 = 188 = 94×2 slots, verified in `build_site.validate_maps`.
+
 **Two isolated circles.** K2 = eight thinking dimensions (A/C/E/H/O/R/S/St); K3 = five emotional-regulation skills (EP/IR/BI/CF/ST). An isolation wall (`DEC-205`) forbids passing values between them; `parity_isolation.py` polices it.
 
-**Content flows through packs, not code.** Prose lives in JSON packs (`k2_contentpack.json`, `k2_userlayer_pack.json`, `k3_textlayer.json`, …) → `build_packs.py` embeds them into the generated `packs.js` with SHA checks. Python loads the JSON directly (`k2_content.py`, `k3_content.py` — the latter enforces exactly 9 `REQUIRED_EXTERNAL` keys). Never hand-edit generated output; edit the JSON source and regenerate.
+**Content flows through packs, not code.** Prose lives in JSON packs (`k2_contentpack.json`, `k2_userlayer_pack.json`, `k3_textlayer.json`, …) → `build_packs.py` embeds all thirteen (K4's `k4_contentpack.json` included since `DEC-270`) into the generated `packs.js` with SHA checks. Python loads the JSON directly (`k2_content.py`, `k3_content.py` — the latter enforces exactly 9 `REQUIRED_EXTERNAL` keys). Never hand-edit generated output; edit the JSON source and regenerate.
 
-**Pipeline.** Questionnaire answers → `bridge.js` (raw → SP scores; item maps live in the instrument, not here) → engines (profile/bands/patterns) → report builders (nine-section Arabic reports, full + brief modes for K2) → output guards (`sp_gate.py`/`sp_gate.js`: no `SP%` codes or unregistered percentages may reach the reader) → `supervisor.py`/`supervisor_core.js` (grades a delivered report against its audit block; `build_supervisor_html.py` generates the standalone browser tool).
+**Pipeline.** Questionnaire answers → `bridge.js` (raw → SP scores; item maps live in the instrument, not here) → engines (profile/bands/patterns) → report builders (nine-section Arabic reports, full + brief modes for K2) → output guards (`sp_gate.py`/`sp_gate.js`: no `SP%` codes or unregistered percentages may reach the reader) → `supervisor.py`/`supervisor_core.js` (grades a delivered report against its audit block — **all three circles** since `DEC-271`, with K4-specific grades for the declared-debt drift and the crossing surface's separation; `build_supervisor_html.py` generates the standalone browser tool, and `test_supervisor_build.py` *executes* the generated bundle rather than only reading it).
 
 **Golden/regression anchors.** `golden_k2.json`, `golden_k3.json`, `parity_cases.json` are frozen references; `interp_registry.json` registers every approved interpolation (`ح-6`); `k2_lock_registry.json` governs lock phrasing (`ح-7`).
 
@@ -60,4 +67,4 @@ Each tool is a standalone script — run one directly to test one surface. `pari
 - **No temporal-difference reading** (`DEC-244`) and **no validity claims** (`DEC-246`).
 - **A field is added checking, or not added at all** (`00-HANDOVER §6①`): audit fields that report a constant instead of measuring are a rejected pattern — the sole exception is a declared non-measuring field (like `accepted_debts`).
 - Before judging any apparent spec deviation as a defect, **search the decision log first** — a sealed decision may govern it (see `120-VALID-STEPS_DEC-248.md` for the cautionary case).
-- Commit messages reference the sealed `DEC`/`CHG` numbers; acceptance for any change is the 16-tool run with fingerprints unmoved.
+- Commit messages reference the sealed `DEC`/`CHG` numbers; acceptance for any change is the 20-tool run with fingerprints unmoved.

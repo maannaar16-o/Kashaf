@@ -183,6 +183,33 @@ def validate_maps():
         die("تكرار خانة داخل دائرة")
     if set(slots2) & set(slots3):
         die("تقاطع خانات بين K2 وK3 — خرق عزل")
+
+    # ── K4 (DEC-270): الخريطة **تُقرأ من الجدول المختوم وتُقارَن بالمحرك** ──
+    # `instrument_pin`: لا نقل يدوي يُعتمد بلا مقابلة. وقيد التكافؤ المختوم
+    # (`128 §1`): صفّ `K4-SP` في الجدول يُقرأ `PER`.
+    import k4_engine as _E4
+    t54 = parse_map_table("### 5.4", "K4")
+    if "SP" in t54:
+        t54["PER"] = t54.pop("SP")
+    eng4 = {k: [list(p) for p in v] for k, v in _E4.ITEM_MAP.items()}
+    if t54 != eng4:
+        die("جدول 41 §5.4 المفكوك لا يطابق K4.ITEM_MAP في المحرك")
+    if len(eng4) != 7 or any(len(v) != 11 for v in eng4.values()):
+        die("K4: ليست 7 صمامات × 11 بنداً")
+    slots4 = [tuple(p) for v in eng4.values() for p in v]
+    if len(set(slots4)) != 77:
+        die(f"K4: {len(set(slots4))} خانة بدل 77")
+    if set(slots4) & set(slots2):
+        die("تقاطع خانات بين K4 وK2 — خرق عزل (درس DEC-027)")
+    if set(slots4) & set(slots3):
+        die("تقاطع خانات بين K4 وK3 — خرق عزل (درس DEC-027)")
+    # الدوائر الثلاث تقسّم خانات الأداة تقسيماً تاماً — 56+55+77 = 188 = 94×2
+    every = set(slots2) | set(slots3) | set(slots4)
+    if len(every) != 188:
+        die(f"مجموع خانات الدوائر {len(every)} بدل 188")
+    for n, l in slots4:
+        if not (1 <= n <= 94 and l in ("a", "b")):
+            die(f"خانة K4 خارج المدى: {n}{l}")
     for n, l in slots2 + slots3:
         if not (1 <= n <= 94 and l in ("a", "b")):
             die(f"خانة خارج المدى: {n}{l}")
@@ -198,18 +225,23 @@ def wrap(name, src, shim_head="", shim_tail=""):
 def js_modules():
     m = []
     m.append(wrap("engines.js", read("engines.js"),
-                  shim_tail="window.RawahilEngines = { K2, K3, InputContractError };"))
+                  shim_tail="window.RawahilEngines = { K2, K3, K4, InputContractError };"))
     m.append(wrap("packs.js", read("packs.js"),
                   shim_tail="window.RawahilPacks = { PACKS, PACK_SHA, PACK_SOURCE, "
                             "verifyPacks, _sha256, PackIntegrityError };"))
     m.append(f'/* ==== sp_gate.js ==== */\n{read("sp_gate.js")}\n')
     rp = read("reports.js")
-    rp = (rp.replace('const { K2, K3 } = require("./engines.js");',
-                     'const { K2, K3 } = window.RawahilEngines;')
+    rp = (rp.replace('const { K2, K3, K4 } = require("./engines.js");',
+                     'const { K2, K3, K4 } = window.RawahilEngines;')
             .replace('const PK = require("./packs.js");',
                      'const PK = window.RawahilPacks;')
             .replace('const SPG = require("./sp_gate.js");',
-                     'const SPG = window.RawahilSPGate;'))
+                     'const SPG = window.RawahilSPGate;')
+            # حزمة K4 صارت مضمومة إلى `packs.js` (`DEC-270`) — فتُشيَّم إلى
+            # موضعها هناك، **بمصدر حقيقة واحد** لا نسخة ثانية. وإن غابت
+            # بقي الرفض المكتوب نافذاً (`k4RequirePack`).
+            .replace('const K4_PACK = require("./k4_contentpack.json");',
+                     'const K4_PACK = (PK && PK.PACKS && PK.PACKS.CONTENT_K4) || null;'))
     assert "require(" not in rp, "بقي استيراد غير مُشيَّم في reports.js"
     head = 'if (typeof module !== "undefined") {\n  module.exports = {'
     assert rp.count(head) == 1, "كتلة التصدير في reports.js غير فريدة"

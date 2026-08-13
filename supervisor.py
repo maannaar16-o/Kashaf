@@ -28,11 +28,25 @@ sys.path.insert(0, HERE)
 
 import k2_report as R2
 import k3_report as R3
+import k4_report as R4
 from sp_gate import scan, scan_pct
 
 SCHEMA_SUPPORTED = {"RAWAHIL-REPORT-v1.1", "RAWAHIL-REPORT-v1.2"}
+CIRCLES = ("K2", "K3", "K4")
 REQUIRED_AUDIT = ["sp", "engine_version", "spec_version", "instrument_pin",
                   "entries_used", "pack_sha", "report_sha256"]
+
+# قائمة $K_4$ **منقولة حرفياً** من `136 §3/④` — لا تُختصر ولا يُزاد عليها.
+# و`entries_used` ليست فيها: عقد $K_4$ يعلن `codes` و`sections_rendered`
+# بدلاً منها، فطلبها كان سيوقف كل تقرير سليم بلا سند.
+REQUIRED_AUDIT_K4 = [
+    "sp", "codes", "bands", "constraints_activated", "constraint_map",
+    "patterns_recognized", "interruption_points", "bottleneck",
+    "choke_readings", "lookalike_flags", "reading_reserve", "excluded_out",
+    "gap_report", "engine_version", "spec_version", "instrument_pin",
+    "missing_content", "accepted_debts", "open_debts", "sections_rendered",
+    "pack_sha", "report_sha256"]
+FIELD_DEBT_K4 = "DEBT-K4-FIELD-01"
 
 
 class InputError(Exception):
@@ -60,6 +74,8 @@ def regen(circle, audit, mode="full"):
     sp = dict(audit["sp"])
     if circle == "K2":
         return R2.build_report(sp, mode=mode)
+    if circle == "K4":
+        return R4.build_report(sp)
     return R3.build_report(sp)
 
 
@@ -78,8 +94,8 @@ def grade(payload):
     schema = payload.get("schema")
     ok("⓪ المخطَّط معروف", schema in SCHEMA_SUPPORTED, f"وُجد «{schema}»")
     circle = str(payload.get("circle", "")).upper()
-    ok("⓪ الدائرة معلومة", circle in ("K2", "K3"), f"وُجد «{circle}»")
-    if circle not in ("K2", "K3"):
+    ok("⓪ الدائرة معلومة", circle in CIRCLES, f"وُجد «{circle}»")
+    if circle not in CIRCLES:
         return out, errs
 
     audit = payload.get("audit")
@@ -88,9 +104,12 @@ def grade(payload):
         return out, errs
     ok("⓪ حقل audit حاضر", True)
 
-    # ① اكتمال العقد — الحقول السبعة
-    missing = [k for k in REQUIRED_AUDIT if k not in audit]
-    ok("① الحقول السبعة الملزِمة", not missing, f"ناقص {missing}" if missing else "")
+    # ① اكتمال العقد — قائمةٌ لكل دائرة عقدُها
+    req = REQUIRED_AUDIT_K4 if circle == "K4" else REQUIRED_AUDIT
+    name1 = ("① حقول كتلة التدقيق الاثنان والعشرون (136 §3/④)"
+             if circle == "K4" else "① الحقول السبعة الملزِمة")
+    missing = [k for k in req if k not in audit]
+    ok(name1, not missing, f"ناقص {missing}" if missing else "")
     if missing:
         return out, errs
 
@@ -112,6 +131,13 @@ def grade(payload):
     brief_present = "markdown_brief" in body
     ok("② اتّساق الإعلان بالمحتوى", brief_present == has_brief,
        f"scopes={scopes} · markdown_brief {'حاضر' if brief_present else 'غائب'}")
+
+    # $K_4$ **لا نطاق مختصر لها**: `DEC-231` شرَعه لـ$K_2$ وحدها، وعقد `136 §3`
+    # لا يعرفه. وبلا هذه الدرجة يمرّ إعلانٌ كاذب صامتاً — لأن الدرجة ⑧
+    # مشروطة بـ$K_2$ فلا تدقّق ما أُعلن هنا.
+    if circle == "K4":
+        ok("② لا نطاق مختصر في K4 (لا وجود له في 136 §3)", not has_brief,
+           f"أُعلن {scopes!r}")
 
     # ③ البصمة المسجَّلة تصف المخرج المُسلَّم فعلاً
     delivered = body.get("markdown")
@@ -169,6 +195,49 @@ def grade(payload):
        f"{len(leaks_pct)} إصابة: {[c.strip()[:40] for _, c in leaks_pct[:3]]}"
        if leaks_pct else "")
 
+    if circle != "K4":
+        return out, errs
+
+    # ── ⑩ الحقل الإعلاني يُقابَل بالمحرك ─────────────────────────────────
+    # `open_debts` و`accepted_debts` **مصرَّح بعدم قياسهما** (`136 §3/④`):
+    # مصدرهما سجل الحوكمة، ومزامنتهما **يدوية** (`DEC-267`). فما لا يُقاس
+    # مصدرُه **يُقاس انجرافه**: قائمة التقرير المُسلَّم تُقابَل بقائمة المحرك
+    # الحالي — كما تُقابَل بصمات الحزم في ⑦. وبهذا يصير الحدُّ المُعلَن مقيساً.
+    debt_drift = sorted(set(audit["open_debts"]) ^ set(audit2["open_debts"]))
+    ok("⑩ الديون المُعلنة غير منجرفة", not debt_drift,
+       f"فارق: {debt_drift}" if debt_drift else "")
+    has_field_debt = FIELD_DEBT_K4 in audit["open_debts"]
+    ok("⑩ دَين الميدان مُعلَن (DEBT-K4-FIELD-01)", has_field_debt,
+       "" if has_field_debt else "غائب — فتُقرأ الطبقة التفسيرية محقَّقةً ميدانياً")
+
+    # ── ⑪ سطح القراءة العابرة — إن أُعلن فيُدقَّق، **وفصلُه يُقاس** ────────
+    xtext, xaudit = body.get("markdown_crossing"), payload.get("audit_crossing")
+    if xtext is None and xaudit is None:
+        return out, errs
+    if not (isinstance(xtext, str) and xtext.strip()
+            and isinstance(xaudit, dict) and "surface_sha256" in xaudit):
+        ok("⑪ السطح العابر مكتمل", False, "متن أو audit_crossing ناقص")
+        return out, errs
+    try:
+        xt2, xa2 = R4.build_crossing_surface(dict(audit["sp"]))
+    except Exception as e:
+        ok("⑪ السطح العابر: إعادة التوليد", False,
+           f"عقد المدخل مرفوض: {type(e).__name__}")
+        return out, errs
+    ok("⑪ السطح العابر: البصمة تصف المُسلَّم",
+       sha16(xtext) == xaudit["surface_sha256"],
+       f"محسوبة {sha16(xtext)} · مسجَّلة {xaudit['surface_sha256']}")
+    ok("⑪ السطح العابر: إعادة التوليد تطابق", xt2 == xtext,
+       "" if xt2 == xtext else "المتن مختلف")
+    ok("⑪ السطح العابر: القيود غير منجرفة",
+       xaudit.get("entries") == xa2.get("entries"),
+       f"مُسلَّم {xaudit.get('entries')} · مُعاد {xa2.get('entries')}")
+    # `DEC-268`: سطحٌ **خارج متن أي تقرير**. الدمج يُبطل العزل، فيُقاس بأن
+    # لا يظهر أي قيدٍ من قيود السطح في المتن المُسلَّم.
+    leak = [l for l in xtext.split("\n") if l.startswith("- ") and l in delivered]
+    ok("⑪ السطح العابر خارج المتن (DEC-268)", not leak,
+       f"{len(leak)} قيداً مدموجاً" if leak else "")
+
     return out, errs
 
 
@@ -205,8 +274,11 @@ def audit_file(path):
 def self_test():
     """يبني حمولة حقيقية من حالة مرجعية ويدقّقها — ثم يُفسدها ويتأكّد أنه يرصد."""
     cases = json.load(open(os.path.join(HERE, "parity_cases.json"), encoding="utf-8"))
+    # $K_4$ لها مجموعتها المختومة الخاصة (`DEC-266`)
+    cases["k4"] = json.load(open(os.path.join(HERE, "parity_cases_k4.json"),
+                                 encoding="utf-8"))["k4"]
     rc = 0
-    for circle, R in (("K2", R2), ("K3", R3)):
+    for circle, R in (("K2", R2), ("K3", R3), ("K4", R4)):
         sp = list(cases[circle.lower()].values())[0]
         text, audit = (R.build_report(sp, mode="full") if circle == "K2"
                        else R.build_report(sp))
@@ -218,6 +290,12 @@ def self_test():
             payload["scopes"] = ["full", "brief"]
             payload["delivery"]["markdown_brief"] = brief
             payload["audit_brief"] = ab
+        if circle == "K4":
+            # السطح العابر يُعلَن **منفصلاً** حين يستحقّ العرض (`DEC-268`)
+            xt, xa = R.build_crossing_surface(dict(sp))
+            if xt:
+                payload["delivery"]["markdown_crossing"] = xt
+                payload["audit_crossing"] = xa
 
         p = os.path.join(HERE, f"_selftest_{circle}.json")
         json.dump(payload, open(p, "w", encoding="utf-8"), ensure_ascii=False)

@@ -12,7 +12,8 @@
  *  · إجابات موسومة ببصمة بناء — تغيّر الأداة يُبطل المحفوظ (درس GAP-Q-01)
  *  · الأرشيف يحفظ النص المُسلَّم وكتلة تدقيقه حرفياً ويعرضه وحده —
  *    لا شاشة تجمع قياسين ولا قراءة لفارق زمني (DEC-244) — قيد بنيوي
- *  · لا لوحة K1/K4 (DEC-186) · أدوات التحقق الذاتي خارج الشحنة حتى اعتماد عُدّتها
+ *  · لا لوحة K1 (DEC-186 قائم عليها وحدها) · K4 تقريرٌ معتمد منذ DEC-266
+ *    ومُسطَّح في الأداة بـDEC-270، ومعه سطح القراءة العابرة مخرجاً مستقلاً
  */
 (function () {
   var D = window.KashafData;
@@ -28,9 +29,14 @@
   });
   var K2_ORDER = EN.K2.LENSES;
   var K3_MAP = D.K3_MAP;
-  // missingItems تستقبل مصفوفات الأزواج الخام لا الشكل المهيّأ
+  // K4 (DEC-270) — الخريطة من المحرك مباشرة كـK2: مصدرُ حقيقةٍ واحد،
+  // ومطابقتها للجدول المختوم (41 §5.4) مفحوصة في build_site.validate_maps
+  var K4_MAP = EN.K4.ITEM_MAP;
+  // missingItems تستقبل مصفوفات الأزواج الخام لا الشكل المهيّأ.
+  // الدوائر الثلاث تُغطّي 188 خانة = كل خانات الأداة، فالاكتمال يشملها كلها.
   var RAW_MAPS = Object.keys(EN.K2.ITEM_MAP).map(function (k) { return EN.K2.ITEM_MAP[k]; })
-    .concat(Object.keys(K3_MAP).map(function (k) { return K3_MAP[k]; }));
+    .concat(Object.keys(K3_MAP).map(function (k) { return K3_MAP[k]; }))
+    .concat(Object.keys(K4_MAP).map(function (k) { return K4_MAP[k]; }));
 
   var LEGACY_KEY = "rawahil.kashaf.v1";
   var root = document.getElementById("app");
@@ -438,8 +444,8 @@
     go.onclick = function () {
       S.name = inp.value.trim();
       // التوليد ثم الأرشفة: النص المُسلَّم وكتلة تدقيقه يُحفظان حرفياً (عقد إعادة التوليد)
-      var gen = DR.generate(S.answers, K2_MAP, K2_ORDER, K3_MAP);
-      if (!gen.k2 && !gen.k3) {
+      var gen = DR.generate(S.answers, K2_MAP, K2_ORDER, K3_MAP, K4_MAP);
+      if (!gen.k2 && !gen.k3 && !gen.k4) {
         var s2 = screen();
         s2.appendChild(el("h2", "q-prompt", "تعذّر توليد التقرير"));
         gen.errors.forEach(function (e2) {
@@ -664,8 +670,8 @@
       DR.DualReportView,
       {
         answers: S.answers, name: S.name,
-        K2_MAP: K2_MAP, K2_ORDER: K2_ORDER, K3_MAP: K3_MAP,
-        // لا خاصية report — لوحة K1/K4 لا تُعرض علناً (DEC-186)
+        K2_MAP: K2_MAP, K2_ORDER: K2_ORDER, K3_MAP: K3_MAP, K4_MAP: K4_MAP,
+        // لا خاصية report — لوحة K1 لا تُعرض علناً (DEC-186 قائم عليها وحدها)
         onRestart: function () {
           // التقرير محفوظ في الأرشيف — الخروج لا يفقد شيئاً
           unmountReact();
