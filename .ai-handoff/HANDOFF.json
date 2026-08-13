@@ -1,0 +1,17 @@
+{
+  "protocol_version": "1.0",
+  "task_id": "KASHAF-AI-BRIDGE-DEMO-001",
+  "status": "queued",
+  "from_actor": "owner",
+  "to_actor": "claude",
+  "iteration": 0,
+  "summary": "تم إنشاء مهمة تحقق أولية. لم يبدأ التنفيذ بعد.",
+  "changed_files": [],
+  "commands_run": [],
+  "tests": [],
+  "findings": [],
+  "blockers": [],
+  "decisions_needed": [],
+  "last_commit": null,
+  "updated_at": "2026-08-13T00:00:00Z"
+}
