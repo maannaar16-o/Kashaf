@@ -76,7 +76,8 @@ Each tool is a standalone script — run one directly to test one surface. `pari
 - **No temporal-difference reading** (`DEC-244`) and **no validity claims** (`DEC-246`).
 - **A field is added checking, or not added at all** (`00-HANDOVER §6①`): audit fields that report a constant instead of measuring are a rejected pattern — the sole exception is a declared non-measuring field (like `accepted_debts`).
 - Before judging any apparent spec deviation as a defect, **search the decision log first** — a sealed decision may govern it (see `120-VALID-STEPS_DEC-248.md` for the cautionary case).
-- Commit messages reference the sealed `DEC`/`CHG` numbers; acceptance for any change is the 20-tool run with fingerprints unmoved.
+- Commit messages reference the sealed `DEC`/`CHG` numbers; acceptance for any change is `python3 gate.py` green.
+- **Numbering under concurrent actors** (`DEC-274`): reading `الترقيم التالي` from `01-MASTER` is a *candidacy, not a reservation* — **the push creates the right**. If another actor took the number first, do **not** force-push: renumber your `DEC`/`CHG`/document code to the next free one, keep `01-MASTER` in chronological order (their row before yours), and record the collision in `02-MASTER`. `gate.py` fails on a duplicate number or a colliding document code, so a collision cannot merge silently.
 
 
 ## AI handoff bridge (owner-authorized draft)

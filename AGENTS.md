@@ -30,3 +30,9 @@
 ## أقفال إلزامية
 
 لا تعتمد تغييرًا يمس القياس أو الأوزان أو المستويات أو المعادلات أو القرارات الحاكمة دون موافقة المالك. لا تنشر، لا تحذف حذفًا جوهريًا، ولا تدمج PR تلقائيًا. لا تكتب أسرارًا في المستودع.
+
+## Numbering under concurrent actors (`DEC-274`)
+
+Reading `الترقيم التالي` from `01-MASTER` is a **candidacy, not a reservation** — the push creates the right. If another actor sealed that `DEC`/`CHG`/document code first: **never force-push over it**. Renumber yours to the next free number, keep `01-MASTER` chronological (their row before yours), and record the collision in `02-MASTER`. `python3 gate.py` fails on a duplicate number or a colliding document code.
+
+*Reference only — this adds no step, permission, or limit to the handoff protocol sealed in `DEC-272`.*

@@ -170,6 +170,77 @@ def check_generated():
          else " · ".join(GENERATED) + " — كلّها مُسقَطة")
 
 
+# ── ⑤ تكامل الترقيم — `DEC-274` ──────────────────────────────────────────
+# **لا يُعطى رمزاً من سلسلة `ح`** بمسوّغه: تلك السلسلة تحرس ما **يصل
+# القارئ** (`SP%` · نسبة · استيفاء · صياغة قفل)، وهذا يحرس **سجلّ الحوكمة**.
+# وخلطُ السلسلتين يُفقد الرمز دلالته.
+ROW_DEC = re.compile(r"^\|\s*\*{0,2}`?(DEC-\d{3})`?\*{0,2}\s*\|(.*)$", re.M)
+ROW_CHG = re.compile(r"^\|\s*\*{0,2}`?(CHG-\d{3})`?\*{0,2}\s*\|(.*)$", re.M)
+
+
+def _is_reserved(rest):
+    """**الصفّ المحجوز يبدأ عنوانُه بـ`RESERVED`** — لا مجرّد ذكرٍ للكلمة
+    في متنه. وأول صياغة قالت «`RESERVED` في الصفّ» فاستثنت **قرار `DEC-274`
+    نفسه** لأنه يتحدّث عن الحجز؛ ورصد الحرسُ الأثر قبل الختم. ثم تبيّن أن
+    القاعدة كانت **مكتوبةً مرّتين** فصُحّحت واحدة وبقيت الأخرى — فجُمعتا
+    هنا في دالّة واحدة (`م-2` على الكود كما على الوثائق)."""
+    return rest.lstrip("| *`").startswith("RESERVED")
+
+
+def _dupes(rows):
+    """المكرَّر = رقمٌ في صفَّين **قرارِيَّين**. وصفوف `RESERVED` تُستثنى
+    باستثناءٍ **مشتقٍّ من محتواها** لا بقائمة أرقامٍ محفورة: خانةٌ محجوزة
+    تُذكر في جدولين ليست قرارَين بالرقم نفسه (`DEC-022…025`)."""
+    seen, dup, reserved = {}, [], 0
+    for code, rest in rows:
+        if _is_reserved(rest):
+            reserved += 1
+            continue
+        seen[code] = seen.get(code, 0) + 1
+    dup = sorted(c for c, n in seen.items() if n > 1)
+    return dup, len(seen), reserved
+
+
+def check_numbering():
+    """`DEBT-NUM-LOCK-01`: الرقم مورد مشترك يُقرأ ولا يُحجَز. **ولا قفل
+    يُبنى بلا بنية تحتية يرفضها المشروع** — فيُقاس التصادم بدل أن يُوعَد
+    بمنعه: يُرصد هنا، ويُرصد في `CI`، فلا يهبط صامتاً."""
+    m1 = os.path.join(HERE, "01-MASTER-Governance_Foundations_And_Decisions.md")
+    m2 = os.path.join(HERE, "02-MASTER-Tracking_And_Risks.md")
+    if not (os.path.exists(m1) and os.path.exists(m2)):
+        print("⚪ تكامل الترقيم — سجلّ غائب · الفحص متعذّر لا مُجتاز")
+        return
+    t1 = io.open(m1, encoding="utf-8").read()
+    t2 = io.open(m2, encoding="utf-8").read()
+
+    dup, n_dec, reserved = _dupes(ROW_DEC.findall(t1))
+    mark(not dup, "صفر قرارٍ مكرَّر الرقم",
+         f"مكرَّر: {dup}" if dup else f"{n_dec} قراراً · {reserved} صفّاً محجوزاً مستثنىً")
+
+    nums = sorted(int(c[4:]) for c, r in ROW_DEC.findall(t1)
+                  if not _is_reserved(r))
+    nxt = re.search(r"الترقيم التالي:\*\* `DEC-(\d+)`", t1)
+    if not nxt or not nums:
+        mark(False, "الترقيم التالي معلَن", "الحقل غير مقروء")
+    else:
+        want, got = max(nums) + 1, int(nxt.group(1))
+        mark(want == got, "الترقيم التالي = الأعلى + 1",
+             f"المُعلَن {got} · المتوقَّع {want}" if want != got else f"DEC-{got}")
+
+    dupc, n_chg, _ = _dupes(ROW_CHG.findall(t2))
+    mark(not dupc, "صفر تغييرٍ مكرَّر الرقم",
+         f"مكرَّر: {dupc}" if dupc else f"{n_chg} تغييراً")
+
+    codes = {}
+    for name in os.listdir(HERE):
+        m = re.match(r"^(\d{3})-.*\.md$", name)
+        if m:
+            codes.setdefault(m.group(1), []).append(name)
+    clash = {k: v for k, v in codes.items() if len(v) > 1}
+    mark(not clash, "صفر كودِ وثيقةٍ مكرَّر",
+         f"متصادم: {clash}" if clash else f"{len(codes)} كوداً فريداً")
+
+
 def setup():
     print("── التهيئة " + "─" * 66)
     for cmd, why in SETUP:
@@ -197,6 +268,7 @@ def main(argv):
     check_coverage()
     check_docs()
     check_generated()
+    check_numbering()
     print("═" * 78)
     if FAILS:
         print(f"النتيجة: ❌ انحدار — {len(FAILS)}")
