@@ -2316,9 +2316,15 @@ function buildReportK4(sp, pack) {
   head("audit");
   L.push("```", jsonPy(a, 1), "```");
 
+  // كتلة التدقيق تُكمَل **بعد** تصيير المتن — فلا يدخل ما يوصفها في ما تصفه.
+  // و`pack_sha`/`report_sha256` **حقلان ملزمان** في `136 §3/④`: كانا حاضرين
+  // في بايثون وغائبين هنا، والقياس القائم لم يكشفهما لأنه يقارن كتلة
+  // **المحرك** ونصّ التقرير — لا كتلة تدقيق التقرير (رُصد ببناء `DEC-271`).
+  const audit = Object.assign({}, a, { sections_rendered: n });
+  audit.pack_sha = { CONTENT_K4: _shaObj(pack) };
   const body = L.join("\n");
   SPG.outputGate(body, "تقرير K4");
-  const audit = Object.assign({}, a, { sections_rendered: n });
+  audit.report_sha256 = PK._sha256(body).slice(0, 16);
   return [body, audit];
 }
 

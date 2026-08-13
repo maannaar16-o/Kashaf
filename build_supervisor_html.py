@@ -28,7 +28,8 @@ def modules():
     # ① engines.js
     en = read("engines.js")
     m = ['\n' + wrap("engines.js", en,
-                     shim_tail='window.RawahilEngines = { K2, K3, InputContractError };')]
+                     shim_tail='window.RawahilEngines = '
+                               '{ K2, K3, K4, InputContractError };')]
 
     # ② packs.js
     pk = read("packs.js")
@@ -41,12 +42,23 @@ def modules():
 
     # ④ reports.js — تُستبدل الاستيرادات بالنطاق العام
     rp = read("reports.js")
-    rp = (rp.replace('const { K2, K3 } = require("./engines.js");',
-                     'const { K2, K3 } = window.RawahilEngines;')
+    rp = (rp.replace('const { K2, K3, K4 } = require("./engines.js");',
+                     'const { K2, K3, K4 } = window.RawahilEngines;')
             .replace('const PK = require("./packs.js");',
                      'const PK = window.RawahilPacks;')
             .replace('const SPG = require("./sp_gate.js");',
-                     'const SPG = window.RawahilSPGate;'))
+                     'const SPG = window.RawahilSPGate;')
+            # حزمة $K_4$ مضمومة إلى `packs.js` (`DEC-270`) — **مصدر حقيقة
+            # واحد**، لا نسخة ثانية. وبلا هذا التشييم يبقى `require` فيسقط
+            # البناء كما سقط فعلاً — والحرس المستجدّ `test_supervisor_build.py`
+            # يمنع تكرار السقوط الصامت (`DEC-271`).
+            # `PACKS[k]` **كائنٌ مُفكَّك سلفاً** في `packs.js` (سطر 134) — فلا
+            # يُفكّ مرّة ثانية. كتبتُ `JSON.parse` هنا أولاً فبُنيت الأداة بلا
+            # شكوى وكانت **ستسقط في يد المستخدم**: بناءٌ ناجح ليس تشغيلاً
+            # ناجحاً. ولذلك يشغّل الحرس الحزمة المولَّدة فعلاً لا يقرأها.
+            .replace('const K4_PACK = require("./k4_contentpack.json");',
+                     'const K4_PACK = (PK && PK.PACKS && PK.PACKS.CONTENT_K4)'
+                     ' || null;'))
     assert "require(" not in rp, "بقي استيراد غير مُشيَّم في reports.js"
     # التصدير: يُحوَّل شرط `module` إلى إسناد عام — باستبدال حرفي لا بنمط
     head = 'if (typeof module !== "undefined") {\n  module.exports = {'
@@ -325,7 +337,10 @@ __MODULES__
   // فحص الأداة نفسها: حمولة سليمة تمرّ، ثم تُفسَد بحرف واحد فتسقط
   document.getElementById("self").onclick=function(){
     out.innerHTML="";
-    var sp={A:[9,1,1],R:[5,3,3],C:[7,2,2],O:[6,3,2],S:[8,2,1],E:[4,4,3],St:[7,3,1],H:[6,2,3]};
+    // قاموس SP لا ثلاثيات خام: المشرف يعيد التوليد من `audit.sp` وحده،
+    // فحمولةٌ بغير شكله تُعلَن «منجرفة» وهي سليمة — عيبٌ رصده حرس DEC-271.
+    // والقيم **تركيبية** لا تخصّ حالة مرجعية: عيّنةٌ لفحص الأداة لا قراءة.
+    var sp={A:80.0,R:60.0,C:55.0,O:45.0,S:70.0,E:40.0,St:50.0,H:65.0};
     var pair;
     try{ pair=RP.buildReportK2(sp,"full"); }
     catch(e){ out.appendChild(el("p","err","تعذّر توليد عيّنة: "+e.message)); return; }
@@ -335,6 +350,19 @@ __MODULES__
     var bad=JSON.parse(JSON.stringify(base));
     bad.delivery.markdown+=" .";
     render("فحص ذاتي — أُفسدت بحرف واحد (المتوقع: منجرف)",bad);
+
+    // دائرة الإنجاز — تغطيتها في المتصفح تُبرهَن هنا لا تُفترض (DEC-271)
+    var sp4={WM:62,TI:38,F:74,PF:44,OR:55,TM:41,PER:40}, p4, x4;
+    try{ p4=RP.buildReportK4(sp4); x4=RP.buildCrossingSurface(sp4); }
+    catch(e){ out.appendChild(el("p","err","تعذّر توليد عيّنة K4: "+e.message)); return; }
+    var b4={schema:"RAWAHIL-REPORT-v1.2",circle:"K4",generated_at:"self-test",
+            scopes:["full"],delivery:{markdown:p4[0]},audit:p4[1]};
+    if(x4[0]){ b4.delivery.markdown_crossing=x4[0]; b4.audit_crossing=x4[1]; }
+    render("فحص ذاتي — K4 سليمة بسطحها العابر (المتوقع: سليم)",b4);
+    var bad4=JSON.parse(JSON.stringify(b4));
+    bad4.audit.open_debts=(bad4.audit.open_debts||[]).filter(function(d){
+      return d!=="DEBT-K4-FIELD-01"; });
+    render("فحص ذاتي — K4 وقد حُذف دَين الميدان (المتوقع: منجرف)",bad4);
   };
 })();
 </script>

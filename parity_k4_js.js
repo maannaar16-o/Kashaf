@@ -37,9 +37,10 @@ for (const [name, sp] of Object.entries(CASES.k4)) {
   const s = canon(a);
   raw.k4[name] = s;
   out.k4[name] = sha(s);
-  const [body] = buildReportK4(sp);
-  raw.report[name] = body;
-  out.report[name] = sha(body);
+  const [body, repAudit] = buildReportK4(sp);
+  const sRep = body + "\u0000" + canon(repAudit);
+  raw.report[name] = sRep;
+  out.report[name] = sha(sRep);
   const [xbody, xa] = buildCrossingSurface(sp);
   const xs = xbody + "\u0000" + canon(xa);
   raw.crossing[name] = xs;

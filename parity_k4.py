@@ -51,10 +51,13 @@ def build():
         s = canon(E4.run(sp).audit)
         raw["k4"][name] = s
         h["k4"][name] = sha(s)
-        # التقرير — النصّ الكامل يدخل البصمة (تكافؤ نصّي لا منطقي فقط)
-        body, _ = R4(sp)
-        raw["report"][name] = body
-        h["report"][name] = sha(body)
+        # التقرير — النصّ الكامل **وكتلة تدقيقه** يدخلان البصمة.
+        # كانت الكتلة مُهمَلة (`_`) فمرّ غياب `pack_sha`/`report_sha256` من
+        # التوأم JS صامتاً: تكافؤُ نصٍّ ليس تكافؤَ عقدٍ (`00-HANDOVER §6③`).
+        body, rep_audit = R4(sp)
+        s_rep = body + "\u0000" + canon(rep_audit)
+        raw["report"][name] = s_rep
+        h["report"][name] = sha(s_rep)
         # سطح القراءة العابرة — مخرج مستقل يدخل البصمة بذاته
         xbody, xa = X4(sp)
         xs = xbody + "\u0000" + canon(xa)

@@ -1,6 +1,7 @@
 # CHG-054: generated artifacts must never enter the knowledge base
 packs.js
 k3_contentpack.py
+Supervisor.html
 __pycache__/
 .claude/settings.local.json
 contrib_batch.json

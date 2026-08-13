@@ -10,8 +10,21 @@
 (function (root) {
 
   var SCHEMA_SUPPORTED = ["RAWAHIL-REPORT-v1.1", "RAWAHIL-REPORT-v1.2"];
+  var CIRCLES = ["K2", "K3", "K4"];
   var REQUIRED_AUDIT = ["sp", "engine_version", "spec_version", "instrument_pin",
                         "entries_used", "pack_sha", "report_sha256"];
+
+  // قائمة $K_4$ **منقولة حرفياً** من `136 §3/④` — لا تُختصر ولا يُزاد عليها.
+  // و`entries_used` ليست فيها: عقد $K_4$ يعلن `codes` و`sections_rendered`
+  // بدلاً منها، فطلبها كان سيوقف كل تقرير سليم بلا سند.
+  var REQUIRED_AUDIT_K4 = [
+    "sp", "codes", "bands", "constraints_activated", "constraint_map",
+    "patterns_recognized", "interruption_points", "bottleneck",
+    "choke_readings", "lookalike_flags", "reading_reserve", "excluded_out",
+    "gap_report", "engine_version", "spec_version", "instrument_pin",
+    "missing_content", "accepted_debts", "open_debts", "sections_rendered",
+    "pack_sha", "report_sha256"];
+  var FIELD_DEBT_K4 = "DEBT-K4-FIELD-01";
 
   function norm(t) {
     var lines = t.replace(/\r\n/g, "\n").split("\n").map(function (l) {
@@ -28,8 +41,9 @@
   function regen(circle, audit, mode) {
     var RP = root.RawahilReports;
     var sp = JSON.parse(JSON.stringify(audit.sp));
-    return circle === "K2" ? RP.buildReportK2(sp, mode || "full")
-                           : RP.buildReportK3(sp);
+    if (circle === "K2") return RP.buildReportK2(sp, mode || "full");
+    if (circle === "K4") return RP.buildReportK4(sp);
+    return RP.buildReportK3(sp);
   }
 
   /** نظير `repr` البايثوني — التفاصيل نصّ مقارَن، فلا بدّ أن تتطابق حرفياً. */
@@ -55,8 +69,8 @@
     var schema = payload.schema;
     ok("⓪ المخطَّط معروف", SCHEMA_SUPPORTED.indexOf(schema) !== -1, "وُجد «" + schema + "»");
     var circle = String(payload.circle || "").toUpperCase();
-    ok("⓪ الدائرة معلومة", circle === "K2" || circle === "K3", "وُجد «" + circle + "»");
-    if (circle !== "K2" && circle !== "K3") return [out, errs];
+    ok("⓪ الدائرة معلومة", CIRCLES.indexOf(circle) !== -1, "وُجد «" + circle + "»");
+    if (CIRCLES.indexOf(circle) === -1) return [out, errs];
 
     var audit = payload.audit;
     if (!audit || typeof audit !== "object" || Array.isArray(audit)) {
@@ -65,10 +79,13 @@
     }
     ok("⓪ حقل audit حاضر", true);
 
-    // ① اكتمال العقد
-    var missing = REQUIRED_AUDIT.filter(function (k) { return !(k in audit); });
-    ok("① الحقول السبعة الملزِمة", !missing.length,
-       missing.length ? "ناقص " + repr(missing) : "");
+    // ① اكتمال العقد — قائمةٌ لكل دائرة عقدُها
+    var req = (circle === "K4") ? REQUIRED_AUDIT_K4 : REQUIRED_AUDIT;
+    var name1 = (circle === "K4")
+      ? "① حقول كتلة التدقيق الاثنان والعشرون (136 §3/④)"
+      : "① الحقول السبعة الملزِمة";
+    var missing = req.filter(function (k) { return !(k in audit); });
+    ok(name1, !missing.length, missing.length ? "ناقص " + repr(missing) : "");
     if (missing.length) return [out, errs];
 
     // ② النطاقات مُعلَنة (DEC-231)
@@ -89,6 +106,14 @@
     var briefPresent = ("markdown_brief" in body);
     ok("② اتّساق الإعلان بالمحتوى", briefPresent === hasBrief,
        "scopes=" + str(scopes) + " · markdown_brief " + (briefPresent ? "حاضر" : "غائب"));
+
+    // $K_4$ **لا نطاق مختصر لها**: `DEC-231` شرَعه لـ$K_2$ وحدها، وعقد `136 §3`
+    // لا يعرفه. وبلا هذه الدرجة يمرّ إعلانٌ كاذب صامتاً — لأن الدرجة ⑧
+    // مشروطة بـ$K_2$ فلا تدقّق ما أُعلن هنا.
+    if (circle === "K4") {
+      ok("② لا نطاق مختصر في K4 (لا وجود له في 136 §3)", !hasBrief,
+         "أُعلن " + repr(scopes));
+    }
 
     // ③ المتن المُسلَّم
     var delivered = body.markdown;
@@ -150,6 +175,59 @@
     ok("⑨ ح-5 — لا نسبة غير مسجَّلة", !lpct.length,
        lpct.length ? lpct.length + " إصابة: " +
          repr(lpct.slice(0, 3).map(function (h) { return h[1].trim().slice(0, 40); })) : "");
+
+    if (circle !== "K4") return [out, errs];
+
+    // ── ⑩ الحقل الإعلاني يُقابَل بالمحرك ─────────────────────────────────
+    // `open_debts` و`accepted_debts` **مصرَّح بعدم قياسهما** (`136 §3/④`):
+    // مصدرهما سجل الحوكمة، ومزامنتهما **يدوية** (`DEC-267`). فما لا يُقاس
+    // مصدرُه **يُقاس انجرافه**: قائمة التقرير المُسلَّم تُقابَل بقائمة المحرك
+    // الحالي — كما تُقابَل بصمات الحزم في ⑦. وبهذا يصير الحدُّ المُعلَن مقيساً.
+    var dSeen = {}, dCode;
+    (audit.open_debts || []).forEach(function (c) { dSeen[c] = (dSeen[c] || 0) + 1; });
+    (audit2.open_debts || []).forEach(function (c) { dSeen[c] = (dSeen[c] || 0) + 2; });
+    var debtDrift = Object.keys(dSeen).filter(function (c) {
+      return dSeen[c] !== 3;
+    }).sort();
+    ok("⑩ الديون المُعلنة غير منجرفة", !debtDrift.length,
+       debtDrift.length ? "فارق: " + repr(debtDrift) : "");
+    var hasFieldDebt = (audit.open_debts || []).indexOf(FIELD_DEBT_K4) !== -1;
+    ok("⑩ دَين الميدان مُعلَن (DEBT-K4-FIELD-01)", hasFieldDebt,
+       hasFieldDebt ? "" : "غائب — فتُقرأ الطبقة التفسيرية محقَّقةً ميدانياً");
+
+    // ── ⑪ سطح القراءة العابرة — إن أُعلن فيُدقَّق، **وفصلُه يُقاس** ────────
+    var xtext = body.markdown_crossing, xaudit = payload.audit_crossing;
+    if ((xtext === undefined || xtext === null) &&
+        (xaudit === undefined || xaudit === null)) return [out, errs];
+    if (!(typeof xtext === "string" && xtext.trim() && xaudit &&
+          typeof xaudit === "object" && !Array.isArray(xaudit) &&
+          ("surface_sha256" in xaudit))) {
+      ok("⑪ السطح العابر مكتمل", false, "متن أو audit_crossing ناقص");
+      return [out, errs];
+    }
+    var xpair;
+    try { xpair = root.RawahilReports.buildCrossingSurface(JSON.parse(JSON.stringify(audit.sp))); }
+    catch (e2) {
+      ok("⑪ السطح العابر: إعادة التوليد", false,
+         "عقد المدخل مرفوض: " + (e2.name || "Error"));
+      return [out, errs];
+    }
+    var xt2 = xpair[0], xa2 = xpair[1];
+    var xlive = sha16(xtext);
+    ok("⑪ السطح العابر: البصمة تصف المُسلَّم", xlive === xaudit.surface_sha256,
+       "محسوبة " + xlive + " · مسجَّلة " + xaudit.surface_sha256);
+    ok("⑪ السطح العابر: إعادة التوليد تطابق", xt2 === xtext,
+       xt2 === xtext ? "" : "المتن مختلف");
+    ok("⑪ السطح العابر: القيود غير منجرفة",
+       repr(xaudit.entries) === repr(xa2.entries),
+       "مُسلَّم " + str(xaudit.entries) + " · مُعاد " + str(xa2.entries));
+    // `DEC-268`: سطحٌ **خارج متن أي تقرير**. الدمج يُبطل العزل، فيُقاس بأن
+    // لا يظهر أي قيدٍ من قيود السطح في المتن المُسلَّم.
+    var leak = xtext.split("\n").filter(function (l) {
+      return l.indexOf("- ") === 0 && delivered.indexOf(l) !== -1;
+    });
+    ok("⑪ السطح العابر خارج المتن (DEC-268)", !leak.length,
+       leak.length ? leak.length + " قيداً مدموجاً" : "");
 
     return [out, errs];
   }

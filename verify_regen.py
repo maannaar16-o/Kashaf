@@ -18,6 +18,7 @@ sys.path.insert(0, HERE)
 
 import k2_report as R2
 import k3_report as R3
+import k4_report as R4
 
 
 def norm(t):
@@ -34,14 +35,20 @@ def regen(circle, audit):
     sp = dict(audit["sp"])
     if circle == "k2":
         return R2.build_report(sp)
+    if circle == "k4":
+        return R4.build_report(sp)
     return R3.build_report(sp)
 
 
 def main():
     cases = json.load(open(os.path.join(HERE, "parity_cases.json"), encoding="utf-8"))
+    # $K_4$ لها مجموعتها المختومة — والعقد واحد للدوائر الثلاث (`DEC-271`)
+    cases["k4"] = json.load(open(os.path.join(HERE, "parity_cases_k4.json"),
+                                 encoding="utf-8"))["k4"]
     errs, n = [], 0
 
-    for circle, builder in (("k2", R2.build_report), ("k3", R3.build_report)):
+    for circle, builder in (("k2", R2.build_report), ("k3", R3.build_report),
+                            ("k4", R4.build_report)):
         ok = 0
         for name, sp in cases[circle].items():
             n += 1
@@ -76,10 +83,15 @@ def main():
     print("-" * 70)
     REQUIRED = ["sp", "engine_version", "spec_version", "instrument_pin",
                 "entries_used", "pack_sha", "report_sha256"]
+    # عقد $K_4$ مختوم في `136 §3/④` — و`entries_used` ليست فيه: يعلن `codes`
+    # و`sections_rendered` بدلاً منها. تُقرأ القائمة من المشرف: مصدرُ حقيقةٍ واحد.
+    import supervisor as _SV
     for circle, builder, sample in (("k2", R2.build_report, list(cases["k2"].values())[0]),
-                                    ("k3", R3.build_report, list(cases["k3"].values())[0])):
+                                    ("k3", R3.build_report, list(cases["k3"].values())[0]),
+                                    ("k4", R4.build_report, list(cases["k4"].values())[0])):
         _, a = builder(sample)
-        missing = [k for k in REQUIRED if k not in a]
+        req = _SV.REQUIRED_AUDIT_K4 if circle == "k4" else REQUIRED
+        missing = [k for k in req if k not in a]
         if missing:
             errs.append(f"{circle}: حقول ناقصة {missing}")
         print(f"{circle:<5} عقد الحقول: " + ("✅ مكتمل" if not missing else f"❌ ناقص {missing}"))
