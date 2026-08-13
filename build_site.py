@@ -198,18 +198,24 @@ def wrap(name, src, shim_head="", shim_tail=""):
 def js_modules():
     m = []
     m.append(wrap("engines.js", read("engines.js"),
-                  shim_tail="window.RawahilEngines = { K2, K3, InputContractError };"))
+                  shim_tail="window.RawahilEngines = { K2, K3, K4, InputContractError };"))
     m.append(wrap("packs.js", read("packs.js"),
                   shim_tail="window.RawahilPacks = { PACKS, PACK_SHA, PACK_SOURCE, "
                             "verifyPacks, _sha256, PackIntegrityError };"))
     m.append(f'/* ==== sp_gate.js ==== */\n{read("sp_gate.js")}\n')
     rp = read("reports.js")
-    rp = (rp.replace('const { K2, K3 } = require("./engines.js");',
-                     'const { K2, K3 } = window.RawahilEngines;')
+    rp = (rp.replace('const { K2, K3, K4 } = require("./engines.js");',
+                     'const { K2, K3, K4 } = window.RawahilEngines;')
             .replace('const PK = require("./packs.js");',
                      'const PK = window.RawahilPacks;')
             .replace('const SPG = require("./sp_gate.js");',
-                     'const SPG = window.RawahilSPGate;'))
+                     'const SPG = window.RawahilSPGate;')
+            # حزمة K4 غير مضمومة إلى `packs.js` بعد (البند ② مؤجَّل بأمر المالك):
+            # تُشيَّم إلى `null` صريحاً، فيُرفع خطأ مكتوب عند أي استدعاء —
+            # لا تقرير K4 بلا حزمة، ولا فشل صامت.
+            .replace('const K4_PACK = require("./k4_contentpack.json");',
+                     'const K4_PACK = (typeof window !== "undefined" '
+                     '&& window.RawahilK4Pack) || null;'))
     assert "require(" not in rp, "بقي استيراد غير مُشيَّم في reports.js"
     head = 'if (typeof module !== "undefined") {\n  module.exports = {'
     assert rp.count(head) == 1, "كتلة التصدير في reports.js غير فريدة"

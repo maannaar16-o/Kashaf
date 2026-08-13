@@ -16,7 +16,7 @@
 بصمات المصادر:
   40-MEASURE_Questionnaire_v5.md: f0b4332f8999e36e
   41-Raw_Measure_v4_2.md: 51af2705a1b072b2
-  engines.js: f3e7484e910f6b06
+  engines.js: cf862250529d3c42
   packs.js: b35884c7d610c625
   بصمة البناء (البنود+الخرائط): 8f5a97ac0dd7fdb8
 -->
@@ -1032,9 +1032,265 @@ const K3 = (() => {
            g5Isolation, g5ScanContent, run };
 })();
 
-if (typeof module !== "undefined") module.exports = { K2, K3, InputContractError };
 
-window.RawahilEngines = { K2, K3, InputContractError };
+// ═══════════════════════════════════════════════════════════════════ K4 ═══
+/**
+ * توأم `k4_engine.py` — المرحلة ٨ (`DEC-266`).
+ * صفر عتبة مستحدثة: الحدود مختومة سلفاً (`DEC-261`/`TRF-010`) بحدود دنيا (`<`).
+ * صفر ترجيح مخترَع: تعادل عنق الزجاجة يُعرض بلا كسر (`DEC-150`/`R11` قياساً).
+ * عزل ثلاثي: لا رمز ولا بند من K2/K3 يدخل هذه الوحدة.
+ */
+const K4 = (() => {
+  const ENGINE_VERSION = "1.0";
+  const SPEC_VERSION = "136-K4-ENGINE v1.0";
+  const INSTRUMENT_PIN = "40 v5.0 + 41 v4.2";
+  const MAX_RAW = 66;
+
+  // ترتيب المسار — سند مزدوج (`129 §2/①`)
+  const VALVES = ["WM", "TI", "F", "PF", "OR", "TM", "PER"];
+
+  const USER_NAME = {
+    WM: "الذاكرة العاملة النشطة",
+    TI: "المبادرة والبدء الفعلي",
+    F: "التركيز وحجب المشتتات",
+    PF: "الالتزام بالأولويات والمسار الحرج",
+    OR: "التنظيم المادي للأشياء",
+    TM: "تقدير الوقت وإدارة الزمن",
+    PER: "المثابرة وإكمال المهام",
+  };
+
+  /** نظير `_num` البايثوني — صريح عمداً (`DEC-235`). */
+  function _num(v) {
+    const f = Number(v);
+    if (!isFinite(f)) return String(v);
+    return Number.isInteger(f) ? String(f) : String(f);
+  }
+
+  function computeSsSp(x, y, z) {
+    if (y + z !== 11) throw new InputContractError(
+      `y+z يجب أن يساوي 11 (y=${_num(y)}, z=${_num(z)})`);
+    const ss = x - 2 * z + y;
+    return [ss, ss / MAX_RAW * 100.0];
+  }
+
+  function octalCode(sp) {
+    if (sp < 0) return "OUT";
+    if (sp < 20) return "L-";
+    if (sp < 40) return "L";
+    if (sp < 50) return "M";
+    if (sp <= 70) return "M+";
+    if (sp <= 85) return "H";
+    if (sp <= 100) return "H+";
+    return "H++";
+  }
+
+  /** ثلاثية القدرة (`TRF-011`/`DEC-261`). */
+  function band(sp) {
+    if (sp < 0) return "OUT";
+    if (sp < 50) return "limited";
+    if (sp <= 70) return "core";
+    return "high";
+  }
+
+  /** حال الطرف في قيود الشبكة. المحايد و`OUT` لا يُستدعيان. */
+  function state(sp) {
+    const b = band(sp);
+    if (b === "limited") return "W";
+    if (b === "high") return "S";
+    return null;
+  }
+
+  const BAND_RANK = { limited: 0, core: 1, high: 2 };
+
+  // قيود الشبكة — `130` (`DEC-259` + `DEC-260`)
+  const CONSTRAINTS = [
+    ["K4-REL-01", "PF", "S", "F", "S", "تعزيز"],
+    ["K4-REL-02", "F", "S", "OR", "W", "مؤازرة"],
+    ["K4-REL-03", "PER", "S", "OR", "W", "مؤازرة"],
+    ["K4-REL-04", "OR", "S", "WM", "W", "مؤازرة"],
+    ["K4-REL-05", "PER", "W", "TI", "S", "هدر"],
+    ["K4-REL-06", "PF", "W", "F", "S", "هدر"],
+    ["K4-REL-07", "TM", "W", "OR", "S", "هدر"],
+    ["K4-REL-08", "TM", "W", "PER", "S", "هدر"],
+    ["K4-REL-09", "PF", "W", "PER", "S", "هدر"],
+    ["K4-REL-10", "WM", "W", "TI", "S", "هدر"],
+    ["K4-REL-11", "TM", "W", "PF", "S", "هدر"],
+    ["K4-REL-12", "TM", "W", "PER", "W", "تفاقم"],
+  ];
+  const TYPE_ORDER = { "تعزيز": 0, "مؤازرة": 1, "تحييد": 2, "هدر": 3, "تفاقم": 4 };
+  const CONSTRAINT_INDEX = {};
+  CONSTRAINTS.forEach((c, i) => { CONSTRAINT_INDEX[c[0]] = i; });
+
+  function activateConstraints(sp) {
+    const out = [];
+    for (const [code, a, sa, b, sb, kind] of CONSTRAINTS) {
+      if (state(sp[a]) === sa && state(sp[b]) === sb) {
+        out.push({ code, a, b, kind, mutual: kind === "تفاقم" });
+      }
+    }
+    out.sort((p, q) => (TYPE_ORDER[p.kind] - TYPE_ORDER[q.kind])
+                    || (CONSTRAINT_INDEX[p.code] - CONSTRAINT_INDEX[q.code]));
+    return out;
+  }
+
+  // الأنماط — `132 §4`
+  const PAT_ORDER = ["K4-PAT-01", "K4-PAT-02", "K4-PAT-03", "K4-PAT-04"];
+
+  function recognizePatterns(sp) {
+    const b = {};
+    VALVES.forEach(v => { b[v] = band(sp[v]); });
+    const pats = [];
+    if (VALVES.some(v => b[v] === "OUT")) return pats;   // لا نمط فوق نقص
+    const limited = VALVES.filter(v => b[v] === "limited");
+    if (["PF", "TM", "PER"].every(v => b[v] === "limited")) {
+      pats.push({ code: "K4-PAT-01", valves: ["PF", "TM", "PER"] });
+    }
+    if (VALVES.every(v => b[v] === "high")) {
+      pats.push({ code: "K4-PAT-02", valves: VALVES.slice() });
+    }
+    if (limited.length === VALVES.length) {
+      pats.push({ code: "K4-PAT-03", valves: VALVES.slice() });
+    }
+    if (limited.length === 1) {
+      pats.push({ code: "K4-PAT-04", valves: limited.slice() });
+    }
+    pats.sort((p, q) => PAT_ORDER.indexOf(p.code) - PAT_ORDER.indexOf(q.code));
+    return pats;
+  }
+
+  // قراءتا المسار — `132 §1`/`§2`
+  function interruptionPoints(sp) {
+    return VALVES.filter(v => band(sp[v]) === "limited");
+  }
+
+  function bottleneck(sp) {
+    const ranked = VALVES.filter(v => band(sp[v]) !== "OUT");
+    if (!ranked.length) return { valves: [], band: null, tie: false };
+    const lo = Math.min(...ranked.map(v => BAND_RANK[band(sp[v])]));
+    const picks = ranked.filter(v => BAND_RANK[band(sp[v])] === lo);
+    const label = Object.keys(BAND_RANK).find(k => BAND_RANK[k] === lo);
+    return { valves: picks, band: label, tie: picks.length > 1 };
+  }
+
+  function chokeReadings(sp, constraints) {
+    const bn = bottleneck(sp);
+    return bn.valves.map(v => {
+      const i = VALVES.indexOf(v);
+      const after = new Set(VALVES.slice(i + 1));
+      const codes = constraints
+        .filter(c => (c.a === v && after.has(c.b)) || (c.b === v && after.has(c.a)))
+        .map(c => c.code);
+      return { valve: v, constraints: codes,
+               reading: codes.length ? "بقيد" : "وصف موضع" };
+    });
+  }
+
+  // المميّز والتحفّظ — `134`
+  function lookalikeFlags(sp) {
+    const b = {};
+    VALVES.forEach(v => { b[v] = band(sp[v]); });
+    const flags = [];
+    if (b.PF === "limited" && b.F === "limited") flags.push({ code: "K4-LK-01", valves: ["PF", "F"] });
+    if (b.OR === "high" && b.PER === "limited") flags.push({ code: "K4-LK-02", valves: ["OR", "PER"] });
+    if (b.TM === "limited" && b.PER === "limited") flags.push({ code: "K4-LK-03", valves: ["TM", "PER"] });
+    return flags;
+  }
+
+  const RESERVE_VALVES = ["F", "OR", "PER"];
+  const RESERVE_CODE = { PER: "FR-K4-01", OR: "FR-K4-02", F: "FR-K4-03" };
+
+  function reserveTriggered(sp) {
+    return RESERVE_VALVES.filter(v => band(sp[v]) === "high");
+  }
+
+  class ContentStrictError extends Error {
+    constructor(missingContent) {
+      super(strictGateMessage(missingContent));
+      this.name = "ContentStrictError";
+      this.missingContent = missingContent.slice();
+    }
+  }
+
+  function strictGateMessage(missingContent) {
+    const body = missingContent && missingContent.length
+      ? missingContent.join(" · ") : "لا شيء";
+    return "بوابة strict — الإصدار موقوف · محتوى مفقود: " + body;
+  }
+
+  function _validate(sp) {
+    const missing = VALVES.filter(v => !(v in sp));
+    if (missing.length) throw new InputContractError(
+      "أوعية ناقصة في المدخل: " + missing.join(","));
+    for (const v of VALVES) {
+      if (!isFinite(Number(sp[v]))) throw new InputContractError(
+        `قيمة غير عددية للوعاء ${v}: ${sp[v]}`);
+    }
+  }
+
+  /** تصيير صريح (`ن-8`) — نظير `_round2` البايثوني. */
+  function _round2(x) {
+    return Math.round((Number(x) + Number.EPSILON) * 10) / 10;
+  }
+
+  function run(sp, content = null, strict = false) {
+    _validate(sp);
+    const outValves = VALVES.filter(v => band(sp[v]) === "OUT");
+    const constraints = activateConstraints(sp);
+    const patterns = recognizePatterns(sp);
+    const bn = bottleneck(sp);
+    const flags = lookalikeFlags(sp);
+    const reserve = reserveTriggered(sp);
+
+    const missingContent = content ? content.missing() : [];
+    if (strict && missingContent.length) throw new ContentStrictError(missingContent);
+
+    const spOut = {}, codes = {}, bands = {};
+    VALVES.forEach(v => {
+      spOut[v] = _round2(sp[v]);
+      codes[v] = octalCode(sp[v]);
+      bands[v] = band(sp[v]);
+    });
+
+    const audit = {
+      sp: spOut,
+      codes: codes,
+      bands: bands,
+      constraints_activated: constraints.map(c => c.code),
+      constraint_map: constraints.map(c => ({ code: c.code, a: c.a, b: c.b,
+                                              kind: c.kind, mutual: c.mutual })),
+      patterns_recognized: patterns.map(p => p.code),
+      interruption_points: interruptionPoints(sp),
+      bottleneck: bn,
+      choke_readings: chokeReadings(sp, constraints),
+      lookalike_flags: flags.map(f => f.code),
+      reading_reserve: reserve.map(v => RESERVE_CODE[v]),
+      excluded_out: outValves,
+      gap_report: outValves.length > 0,
+      engine_version: ENGINE_VERSION,
+      spec_version: SPEC_VERSION,
+      instrument_pin: INSTRUMENT_PIN,
+      missing_content: missingContent,
+      accepted_debts: ["RSK-018(41)", "GAP-Q-07:9ب≈94ب",
+                       "GAP-Q-07:41ب≈45أ", "GAP-Q-07:14ب≈27أ"],
+      // مُزامَنة مع سجل التسوية (`DEC-267` · `137 §8`): `GAP-K4-CASES-01`
+      // دُمجت في `DEBT-K4-FIELD-01` — والمزامنة يدوية مصرَّح بها.
+      open_debts: ["DEBT-K4-FIELD-01", "GAP-K4-FR-CORE",
+                   "GAP-X-EXH-01", "GAP-K4-FR-04"],
+    };
+    return { audit, gap_report: outValves.length > 0 };
+  }
+
+  return { ENGINE_VERSION, SPEC_VERSION, INSTRUMENT_PIN, MAX_RAW, VALVES, USER_NAME,
+           computeSsSp, octalCode, band, state, BAND_RANK,
+           CONSTRAINTS, activateConstraints, recognizePatterns,
+           interruptionPoints, bottleneck, chokeReadings,
+           lookalikeFlags, reserveTriggered, RESERVE_CODE,
+           ContentStrictError, strictGateMessage, run };
+})();
+
+if (typeof module !== "undefined") module.exports = { K2, K3, K4, InputContractError };
+
+window.RawahilEngines = { K2, K3, K4, InputContractError };
 })();
 
 /* ==== packs.js ==== */
@@ -1289,7 +1545,7 @@ window.RawahilPacks = { PACKS, PACK_SHA, PACK_SOURCE, verifyPacks, _sha256, Pack
  *   GAP-RPT-K2-01/02/03 · RSK-DUP-01.
  */
 
-const { K2, K3 } = window.RawahilEngines;
+const { K2, K3, K4 } = window.RawahilEngines;
 const PK = window.RawahilPacks;
 const { PACKS, verifyPacks } = PK;
 const SPG = window.RawahilSPGate;   // ح-4 · DEC-183 · ن-7
@@ -1911,8 +2167,202 @@ function buildReportK3Head(sp) {
   return [SPG.outputGate(full.slice(0, stop).join("\n"), "ترويسة K3"), {}];
 }
 
+
+// ═════════════════════════════════════════════════════════════ K4 ═══════
+/**
+ * توأم `k4_report.py` — عقد التقرير مختوم في `136-K4-ENGINE §3` (`DEC-266`).
+ * يجمّع ولا يؤلّف: كل سطر من `k4_contentpack.json` أو من المحرك.
+ * الحزمة تُمرَّر من الخارج (الطرفان يقرآن الملف نفسه) — لا نسخة ثانية للنص.
+ */
+/** نظير `fill_pair` البايثوني — **صريح عمداً** (`ن-8`): `split/join`
+ *  يبدّل **كل** المواضع، و`replace` بنصٍّ يبدّل أولها فقط. */
+function fillPair(tpl, a, b) {
+  return tpl.split("{أ}").join(a).split("{ب}").join(b);
+}
+
+// حزمة K4 — **سطر استيراد واحد قابل للتشييم** (بدل استيراد داخل كل دالّة).
+// في المتصفح يُشيَّم إلى `window.RawahilK4Pack`، وهو `null` حتى تُضمَّ الحزمة
+// إلى `packs.js` — فيُرفع خطأ مكتوب بدل إصدار تقرير بلا حزمة.
+const K4_PACK = (typeof window !== "undefined" && window.RawahilK4Pack) || null;
+
+function k4RequirePack(pack) {
+  const p = pack || K4_PACK;
+  if (!p) throw new Error(
+    "حزمة K4 غير محمَّلة — لا تقرير بلا حزمة (صفر تأليف · DEC-266)");
+  return p;
+}
+
+function k4BandLabel(pack, b) {
+  const lbl = pack.band_label[b];
+  if (!lbl) throw new Error(`نطاق غير معتمد «${b}» — لا وسم افتراضي (ن-7/④)`);
+  return lbl;
+}
+
+function buildReportK4(sp, pack) {
+  pack = k4RequirePack(pack);
+  const res = K4.run(sp);
+  const a = res.audit;
+  const L = [];
+  let n = 0;
+  const head = (key) => { n += 1; L.push(`## ${AR_NUM[n - 1]} · ${pack.heading[key]}`); L.push(""); };
+  const NAME = K4.USER_NAME;
+
+  // ⓪ إخطار الفجوة — ر-5
+  if (a.gap_report) L.push("> ⚠️ " + pack.notice.gap, "");
+
+  // ① لوحة المحطات
+  head("panel");
+  L.push(pack.notice.order, "");
+  for (const v of K4.VALVES) {
+    const b = a.bands[v];
+    L.push(`### ${NAME[v]} — ${k4BandLabel(pack, b)}`, "", pack.valve[v].U01, "");
+    if (b === "core" || b === "high") L.push(pack.valve[v].U03, "");
+    else if (b === "limited") L.push(pack.valve[v].U04, "");
+  }
+
+  // ② مواضع الانقطاع — مُثرىً بالسطح المركَّب (`138 §3/②`)
+  const pts = a.interruption_points;
+  const C = pack.composed;
+  if (pts.length) {
+    head("interruption");
+    if (pts.length > 1) L.push(C.interruption_multi, "");
+    for (const v of pts) L.push(`**${NAME[v]}** — ` + pack.valve[v].U05, "");
+  }
+
+  // ③ المحطة الأدنى — ر-4
+  const bn = a.bottleneck;
+  if (bn.valves.length) {
+    head("bottleneck");
+    if (bn.tie) L.push("> " + pack.notice.tie, "");
+    const names = bn.valves.map((v) => NAME[v]).join("، ");
+    L.push(`**${names}** — ${k4BandLabel(pack, bn.band)}`, "");
+    L.push(C.bottleneck_meaning, "");
+    if (bn.tie) L.push(C.bottleneck_tie, "");
+    if (a.choke_readings.every((c) => c.reading === "وصف موضع")) {
+      L.push(pack.notice.choke_plain, "");
+    }
+  }
+
+  // ④ الشبكة والأنماط — مُثرىً بالسطح المركَّب (`138 §3/②-③`)
+  if (a.constraint_map.length || a.patterns_recognized.length) {
+    head("network");
+    if (a.constraint_map.length) {
+      L.push(C.network_lead, "");
+      for (const c of a.constraint_map) {
+        const arrow = c.mutual ? "×" : "←";
+        L.push(`- **${c.kind}** · ${NAME[c.a]} ${arrow} ${NAME[c.b]}`);
+        L.push("  " + fillPair(C.kind[c.kind], NAME[c.a], NAME[c.b]));
+      }
+      L.push("", C.network_limit, "");
+    }
+    // الأنماط داخل القسم نفسه — لا قسم ثالث (`138 §3/③`)
+    if (a.patterns_recognized.length) {
+      for (const code of a.patterns_recognized) L.push("- " + C.pattern[code]);
+      L.push("", C.pattern_limit, "");
+    }
+  }
+
+  // ⑤ تحفّظ القراءة — ر-3: كتلة واحدة
+  const inv = {};
+  Object.keys(K4.RESERVE_CODE).forEach((v) => { inv[K4.RESERVE_CODE[v]] = v; });
+  if (a.reading_reserve.length) {
+    head("reserve");
+    L.push(pack.reserve.opening, "");
+    for (const code of a.reading_reserve) {
+      const v = inv[code];
+      L.push(`- **${NAME[v]}** — ` + pack.reserve[v]);
+    }
+    L.push("");
+  }
+
+  // ⑥ أسئلة الفرز
+  if (a.lookalike_flags.length) {
+    head("lookalike");
+    L.push(pack.notice.lookalike_lead, "");
+    for (const code of a.lookalike_flags) L.push("- " + pack.lookalike[code]);
+    L.push("");
+  }
+
+  // ⑦ التدريبات
+  if (pts.length) {
+    head("training");
+    L.push(pack.notice.training_lead, "");
+    for (const v of pts) {
+      const t = pack.training[v];
+      if (t === undefined) L.push(`- **${NAME[v]}** — ` + pack.training_void[v]);
+      else L.push(`- **${NAME[v]}** — ` + t);
+    }
+    L.push("");
+  }
+
+  // ⑧ بصمة القراءة — تصيير مطابق لـ json.dumps(sort_keys=True, indent=1)
+  head("audit");
+  L.push("```", jsonPy(a, 1), "```");
+
+  const body = L.join("\n");
+  SPG.outputGate(body, "تقرير K4");
+  const audit = Object.assign({}, a, { sections_rendered: n });
+  return [body, audit];
+}
+
+// سطح القراءة العابرة — **مخرج مستقل** (`138 §2`)
+// مشغِّله نطاقات K4 وحدها — لا يدخله رقم ولا نطاق من دائرة أخرى.
+const CROSSING_TRIGGERS = [
+  ["K4-XR-02", ["TI"]],
+  ["K4-XR-05", ["TI"]],
+  ["K4-XR-06", ["TI"]],
+  ["K4-XR-04", ["PER"]],
+  ["K4-XR-08", ["OR", "TM", "PF"]],
+];
+
+function crossingEntries(sp) {
+  const out = [];
+  for (const [code, valves] of CROSSING_TRIGGERS) {
+    if (valves.some((v) => K4.band(sp[v]) === "limited")) out.push(code);
+  }
+  return out.length ? ["K4-XR-03"].concat(out) : [];
+}
+
+/** يُصدَر **مستقلاً** — ولا يُستدعى من `buildReportK4` أبداً. */
+function buildCrossingSurface(sp, pack) {
+  pack = k4RequirePack(pack);
+  const codes = crossingEntries(sp);
+  if (!codes.length) return ["", { surface: "crossing", entries: [], rendered: false }];
+  const cr = pack.crossing;
+  const L = [`# ${cr.heading}`, "", cr.lead, ""];
+  for (const code of codes) L.push("- " + cr.entry[code]);
+  L.push("", cr.closing);
+  const body = L.join("\n");
+  SPG.outputGate(body, "سطح القراءة العابرة K4");
+  const audit = { surface: "crossing", entries: codes, rendered: true,
+                  spec_version: "138-K4-SURFACES v1.0" };
+  // `PK._sha256` سها-256 حقيقي مُصدَّر من `packs.js` — يعمل في البيئتين،
+  // وقيمته مطابقة لـ`crypto` حرفياً (مفحوص). فلا مسار خاص بالعقدة.
+  audit.surface_sha256 = PK._sha256(body).slice(0, 16);
+  return [body, audit];
+}
+
+/** تصيير JSON بترتيب مفاتيح وبمسافة بادئة — نظير `json.dumps(..., sort_keys=True, indent=N)`. */
+function jsonPy(v, indent, level) {
+  level = level || 0;
+  const pad = " ".repeat(indent * (level + 1));
+  const padEnd = " ".repeat(indent * level);
+  if (v === null || v === undefined) return "null";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "number") return Number.isInteger(v) ? `${v}.0` : String(v);
+  if (typeof v === "string") return JSON.stringify(v);
+  if (Array.isArray(v)) {
+    if (!v.length) return "[]";
+    return "[\n" + v.map((x) => pad + jsonPy(x, indent, level + 1)).join(",\n") + "\n" + padEnd + "]";
+  }
+  const keys = Object.keys(v).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  if (!keys.length) return "{}";
+  return "{\n" + keys.map((k) => pad + JSON.stringify(k) + ": " + jsonPy(v[k], indent, level + 1)).join(",\n")
+         + "\n" + padEnd + "}";
+}
+
 window.RawahilReports = {
-    buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
+    buildReportK4, buildCrossingSurface, crossingEntries, k4BandLabel, fillPair, k4RequirePack, jsonPy, buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
     purGate, purScanPacks, t6Guard, scanLockFields, scanLockDrift, intensityBlock, stripLocks, r11Block, buildReportK3, buildReportK3Head, dropHeading, bandLabel, altName, skillHeading, BAND_LABEL,
     verifyPacks, K2_CONTENT_ADAPTER, K3_EXTERNAL_CONTRACT, k3MissingContent, K3_CONTENT_ADAPTER,
   };

@@ -21,7 +21,7 @@ Both outputs are gitignored and must **never be committed** (`CHG-054`). Also in
 
 ## Verification suite — the acceptance gate
 
-All 19 tools must pass, and the four parity fingerprints must match **verbatim**. Any deviation ⇒ stop and report; do not commit.
+All 20 tools must pass, and the four parity fingerprints must match **verbatim**. Any deviation ⇒ stop and report; do not commit.
 
 ```bash
 python3 parity_py.py            # fingerprint 2711c24d8155819b — 125 logic cases
@@ -38,6 +38,7 @@ python3 test_report_k2.py       ;  python3 test_report_k3.py
 python3 test_guard_sp.py        ;  python3 test_guard_lock.py
 python3 guard_interp.py
 python3 test_report_k4.py       ;  python3 k4_content.py
+python3 test_site_build.py      # site/app build guard — also verifies docs/ is not stale
 python3 supervisor.py --self-test
 ```
 
@@ -64,4 +65,4 @@ Each tool is a standalone script — run one directly to test one surface. `pari
 - **No temporal-difference reading** (`DEC-244`) and **no validity claims** (`DEC-246`).
 - **A field is added checking, or not added at all** (`00-HANDOVER §6①`): audit fields that report a constant instead of measuring are a rejected pattern — the sole exception is a declared non-measuring field (like `accepted_debts`).
 - Before judging any apparent spec deviation as a defect, **search the decision log first** — a sealed decision may govern it (see `120-VALID-STEPS_DEC-248.md` for the cautionary case).
-- Commit messages reference the sealed `DEC`/`CHG` numbers; acceptance for any change is the 19-tool run with fingerprints unmoved.
+- Commit messages reference the sealed `DEC`/`CHG` numbers; acceptance for any change is the 20-tool run with fingerprints unmoved.

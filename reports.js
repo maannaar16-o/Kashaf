@@ -18,7 +18,7 @@
  *   GAP-RPT-K2-01/02/03 · RSK-DUP-01.
  */
 
-const { K2, K3 } = require("./engines.js");
+const { K2, K3, K4 } = require("./engines.js");
 const PK = require("./packs.js");
 const { PACKS, verifyPacks } = PK;
 const SPG = require("./sp_gate.js");   // ح-4 · DEC-183 · ن-7
@@ -647,12 +647,22 @@ function buildReportK3Head(sp) {
  * يجمّع ولا يؤلّف: كل سطر من `k4_contentpack.json` أو من المحرك.
  * الحزمة تُمرَّر من الخارج (الطرفان يقرآن الملف نفسه) — لا نسخة ثانية للنص.
  */
-const { K4 } = require("./engines.js");
-
 /** نظير `fill_pair` البايثوني — **صريح عمداً** (`ن-8`): `split/join`
  *  يبدّل **كل** المواضع، و`replace` بنصٍّ يبدّل أولها فقط. */
 function fillPair(tpl, a, b) {
   return tpl.split("{أ}").join(a).split("{ب}").join(b);
+}
+
+// حزمة K4 — **سطر استيراد واحد قابل للتشييم** (بدل استيراد داخل كل دالّة).
+// في المتصفح يُشيَّم إلى `window.RawahilK4Pack`، وهو `null` حتى تُضمَّ الحزمة
+// إلى `packs.js` — فيُرفع خطأ مكتوب بدل إصدار تقرير بلا حزمة.
+const K4_PACK = require("./k4_contentpack.json");
+
+function k4RequirePack(pack) {
+  const p = pack || K4_PACK;
+  if (!p) throw new Error(
+    "حزمة K4 غير محمَّلة — لا تقرير بلا حزمة (صفر تأليف · DEC-266)");
+  return p;
 }
 
 function k4BandLabel(pack, b) {
@@ -662,7 +672,7 @@ function k4BandLabel(pack, b) {
 }
 
 function buildReportK4(sp, pack) {
-  if (!pack) pack = require("./k4_contentpack.json");
+  pack = k4RequirePack(pack);
   const res = K4.run(sp);
   const a = res.audit;
   const L = [];
@@ -788,7 +798,7 @@ function crossingEntries(sp) {
 
 /** يُصدَر **مستقلاً** — ولا يُستدعى من `buildReportK4` أبداً. */
 function buildCrossingSurface(sp, pack) {
-  if (!pack) pack = require("./k4_contentpack.json");
+  pack = k4RequirePack(pack);
   const codes = crossingEntries(sp);
   if (!codes.length) return ["", { surface: "crossing", entries: [], rendered: false }];
   const cr = pack.crossing;
@@ -799,8 +809,9 @@ function buildCrossingSurface(sp, pack) {
   SPG.outputGate(body, "سطح القراءة العابرة K4");
   const audit = { surface: "crossing", entries: codes, rendered: true,
                   spec_version: "138-K4-SURFACES v1.0" };
-  audit.surface_sha256 = require("crypto").createHash("sha256")
-    .update(body, "utf8").digest("hex").slice(0, 16);
+  // `PK._sha256` سها-256 حقيقي مُصدَّر من `packs.js` — يعمل في البيئتين،
+  // وقيمته مطابقة لـ`crypto` حرفياً (مفحوص). فلا مسار خاص بالعقدة.
+  audit.surface_sha256 = PK._sha256(body).slice(0, 16);
   return [body, audit];
 }
 
@@ -825,7 +836,7 @@ function jsonPy(v, indent, level) {
 
 if (typeof module !== "undefined") {
   module.exports = {
-    buildReportK4, buildCrossingSurface, crossingEntries, k4BandLabel, fillPair, jsonPy, buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
+    buildReportK4, buildCrossingSurface, crossingEntries, k4BandLabel, fillPair, k4RequirePack, jsonPy, buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
     purGate, purScanPacks, t6Guard, scanLockFields, scanLockDrift, intensityBlock, stripLocks, r11Block, buildReportK3, buildReportK3Head, dropHeading, bandLabel, altName, skillHeading, BAND_LABEL,
     verifyPacks, K2_CONTENT_ADAPTER, K3_EXTERNAL_CONTRACT, k3MissingContent, K3_CONTENT_ADAPTER,
   };
