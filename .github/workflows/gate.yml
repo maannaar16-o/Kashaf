@@ -1,0 +1,40 @@
+# بوابة القبول — الأدوات الاثنتان والعشرون والبصمات الخمس (DEC-273)
+#
+# سند: أمر المالك 2026-08-13 · `00-HANDOVER §6⑦` (ما لا تشمله البوابة ينكسر
+# صامتاً). البوابة كانت تُفرَض بتشغيل المنفّذ لها وحده — فأيّ دفعٍ من جلسةٍ
+# أخرى يهبط غير مقيس. وهنا تصير مفروضةً على كل دفعة وكل طلب دمج.
+#
+# **صفر اعتمادية خارجية** بقصد: لا `pip install` ولا `npm install` — المشروع
+# مبنيٌّ على `python3` و`node` وحدهما، والبوابة تحفظ هذا الشرط بعدم خرقه.
+name: بوابة القبول
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: 22 أداة · 5 بصمات
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # `gate.py` هو **السلطة الواحدة**: يهيّئ، ويشغّل الأدوات، ويطابق
+      # البصمات حرفياً، ويرفض أداةً خارج البوابة أو انجرافاً في الوثائق
+      # أو ملفاً مولَّداً متبَعاً. فلا قائمة ثانية تُصان هنا.
+      - name: تشغيل البوابة
+        run: python3 gate.py

@@ -17,11 +17,20 @@ python3 build_packs.py                              # generates packs.js — REQ
 cp k3_contentpack_FIXED_DEC-195.py k3_contentpack.py  # legal rename
 ```
 
-Both outputs — plus `Supervisor.html` (built by `build_supervisor_html.py`) — are gitignored and must **never be committed** (`CHG-054`). Also intentionally absent from the repo: `Kashaf.html` (the questionnaire instrument, lives in conversation) and `golden_k3_PRE-DEC-215.json`. Do not add them.
+Both outputs — plus `Supervisor.html` (built by `build_supervisor_html.py`) — are gitignored and must **never be committed** (`CHG-054`, machine-checked by `gate.py`). `gate.py` performs both setup steps itself. Also intentionally absent from the repo: `Kashaf.html` (the questionnaire instrument, lives in conversation) and `golden_k3_PRE-DEC-215.json`. Do not add them.
 
 ## Verification suite — the acceptance gate
 
 All 22 tools must pass, and the five parity fingerprints must match **verbatim**. Any deviation ⇒ stop and report; do not commit.
+
+**Run the whole gate with one command — `gate.py` is the single authority** (`DEC-273`): it holds the tool list and the five expected fingerprints, matches them literally, and additionally refuses a tool that exists on disk but is not listed, a fingerprint or tool list in `CLAUDE.md`/`00-HANDOVER` that has drifted from it, and any generated artifact that has become git-tracked. CI (`.github/workflows/gate.yml`) runs exactly this on every push and PR — so never maintain a second copy of the list anywhere.
+
+```bash
+python3 gate.py                 # setup + 22 tools + 5 fingerprints + 4 gate self-checks
+python3 gate.py --list          # the list and its fingerprints, without running
+```
+
+The individual tools (run one directly to test one surface):
 
 ```bash
 python3 parity_py.py            # fingerprint 2711c24d8155819b — 125 logic cases
