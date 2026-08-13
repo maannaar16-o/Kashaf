@@ -17,7 +17,7 @@ sys.path.insert(0, HERE)
 
 import k4_engine as E4
 from k4_content import ContentPack, VALVES, TRAINING_VOID
-from k4_report import build_report
+from k4_report import build_report, build_crossing_surface, crossing_entries
 from sp_gate import scan, scan_pct
 
 FAILS = []
@@ -63,6 +63,22 @@ def test_zero_authoring():
     for v, txt in pack.raw["training_void"].items():
         if txt not in docs[v]:
             missing.append(f"training_void:{v}")
+    surfaces = _read("138-K4-SURFACES_DEC-268.md")
+    cr = pack.raw["crossing"]
+    for k in ("heading", "lead", "closing"):
+        if cr[k] not in surfaces:
+            missing.append(f"crossing:{k}")
+    for code, txt in cr["entry"].items():
+        if txt not in surfaces:
+            missing.append(f"crossing:entry:{code}")
+    cp = pack.raw["composed"]
+    for k, txt in cp.items():
+        if isinstance(txt, dict):
+            for k2, t2 in txt.items():
+                if t2 not in surfaces:
+                    missing.append(f"composed:{k}:{k2}")
+        elif txt not in surfaces:
+            missing.append(f"composed:{k}")
     contract = docs["_contract"]
     for k, txt in pack.raw["heading"].items():
         if txt not in contract:
@@ -162,6 +178,56 @@ def test_no_new_threshold():
           if not novel else f"أرقام غير مختومة: {sorted(novel)}")
 
 
+# ── ز-٢. السطحان — الفصل والشرط والصياغة المغلقة ────────────────────────
+def test_surfaces():
+    pack = ContentPack()
+    cr_texts = list(pack.raw["crossing"]["entry"].values()) + \
+               [pack.raw["crossing"]["heading"], pack.raw["crossing"]["lead"]]
+
+    # فصلٌ قاطع: نصوص السطح العابر لا تظهر داخل تقرير الدائرة
+    cases = json.load(open(os.path.join(HERE, "parity_cases_k4.json"), encoding="utf-8"))["k4"]
+    leaked = []
+    for name, sp in cases.items():
+        body, _ = build_report(sp)
+        if any(x in body for x in cr_texts):
+            leaked.append(name)
+    check("السطح العابر لا يظهر داخل تقرير الدائرة", not leaked,
+          f"{len(cases)} تقريراً · صفر تسرّب" if not leaked else f"{len(leaked)} تسرّب")
+
+    # الشرط: لا سطح بلا مشغِّل — ومشغِّله نطاقات K4 وحدها
+    none_sp = dict(WM=60, TI=60, F=60, PF=60, OR=60, TM=60, PER=60)
+    b0, a0 = build_crossing_surface(none_sp)
+    check("لا سطح عابر بلا مشغِّل", b0 == "" and not a0["rendered"], "صفر مشغِّل ⇒ صفر مخرج")
+
+    ti_sp = dict(none_sp, TI=30)
+    _, a1 = build_crossing_surface(ti_sp)
+    check("مشغِّل المبادرة يستدعي ثلاثة قيود + المبدأ",
+          a1["entries"] == ["K4-XR-03", "K4-XR-02", "K4-XR-05", "K4-XR-06"],
+          " · ".join(a1["entries"]))
+
+    # القيود غير المسطَّحة لا تظهر أبداً
+    all_sp = dict(WM=30, TI=30, F=30, PF=30, OR=30, TM=30, PER=30)
+    bx, ax = build_crossing_surface(all_sp)
+    unsurfaced = {"K4-XR-01", "K4-XR-07", "K4-XR-09"}
+    check("القيود غير المسطَّحة تبقى سجلاً",
+          not (unsurfaced & set(ax["entries"])), "ثلاثة قيود سجلاً لا سطحاً")
+
+    # حارسا المخرج على السطح العابر
+    check("ح-4/ح-5 على السطح العابر", not scan(bx) and not scan_pct(bx), "صفر تسرّب")
+
+    # بنك الصياغة مغلق: «تحييد» بلا صياغة، ودسّها يُرفع مخالفةً
+    raw = json.loads(json.dumps(pack.raw, ensure_ascii=False))
+    raw["composed"]["kind"]["تحييد"] = "صياغة مُقحَمة"
+    check("بنك الصياغة مغلق — «تحييد» بصفر قيود",
+          any("تحييد" in g for g in ContentPack(raw).missing()),
+          "الإقحام يُرفع لا يُقبل")
+
+    # السطح المركَّب يُثري ولا يضيف قسماً
+    _, a = build_report(dict(WM=60, TI=60, F=90, PF=30, OR=60, TM=30, PER=30))
+    check("السطح المركَّب لا يضيف قسماً", a["sections_rendered"] <= 8,
+          f"أقسام معروضة: {a['sections_rendered']} ≤ 8")
+
+
 # ── ز. قواعد العرض ر-3 / ر-4 / ر-5 ──────────────────────────────────────
 def test_display_rules():
     # ر-4: التعادل يُعرض بكامله
@@ -200,6 +266,7 @@ if __name__ == "__main__":
     test_pack_contract()
     test_input_contract()
     test_no_new_threshold()
+    test_surfaces()
     test_display_rules()
     test_declared_fields()
     print("-" * 76)

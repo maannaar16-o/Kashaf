@@ -10,7 +10,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const { K4, InputContractError } = require("./engines.js");
-const { buildReportK4 } = require("./reports.js");
+const { buildReportK4, buildCrossingSurface } = require("./reports.js");
 
 function canon(v) {
   if (v === null || v === undefined) return "null";
@@ -29,8 +29,8 @@ const sha = (s) => crypto.createHash("sha256").update(s, "utf8").digest("hex").s
 
 const CASES = JSON.parse(fs.readFileSync(process.argv[2] || "parity_cases_k4.json", "utf8"));
 
-const out = { k4: {}, report: {}, failure: {} };
-const raw = { k4: {}, report: {}, failure: {} };
+const out = { k4: {}, report: {}, crossing: {}, failure: {} };
+const raw = { k4: {}, report: {}, crossing: {}, failure: {} };
 
 for (const [name, sp] of Object.entries(CASES.k4)) {
   const a = K4.run(sp).audit;
@@ -40,6 +40,10 @@ for (const [name, sp] of Object.entries(CASES.k4)) {
   const [body] = buildReportK4(sp);
   raw.report[name] = body;
   out.report[name] = sha(body);
+  const [xbody, xa] = buildCrossingSurface(sp);
+  const xs = xbody + "\u0000" + canon(xa);
+  raw.crossing[name] = xs;
+  out.crossing[name] = sha(xs);
 }
 
 for (const [name, spec] of Object.entries(CASES.failure)) {
@@ -62,7 +66,7 @@ for (const [name, spec] of Object.entries(CASES.failure)) {
   out.failure[name] = sha(s);
 }
 
-const globalStr = canon({ k4: out.k4, report: out.report, failure: out.failure });
+const globalStr = canon({ k4: out.k4, report: out.report, crossing: out.crossing, failure: out.failure });
 out.GLOBAL = sha(globalStr);
 
 process.stdout.write(JSON.stringify({ hashes: out, raw }));

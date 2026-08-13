@@ -649,6 +649,12 @@ function buildReportK3Head(sp) {
  */
 const { K4 } = require("./engines.js");
 
+/** نظير `fill_pair` البايثوني — **صريح عمداً** (`ن-8`): `split/join`
+ *  يبدّل **كل** المواضع، و`replace` بنصٍّ يبدّل أولها فقط. */
+function fillPair(tpl, a, b) {
+  return tpl.split("{أ}").join(a).split("{ب}").join(b);
+}
+
 function k4BandLabel(pack, b) {
   const lbl = pack.band_label[b];
   if (!lbl) throw new Error(`نطاق غير معتمد «${b}» — لا وسم افتراضي (ن-7/④)`);
@@ -677,10 +683,12 @@ function buildReportK4(sp, pack) {
     else if (b === "limited") L.push(pack.valve[v].U04, "");
   }
 
-  // ② مواضع الانقطاع
+  // ② مواضع الانقطاع — مُثرىً بالسطح المركَّب (`138 §3/②`)
   const pts = a.interruption_points;
+  const C = pack.composed;
   if (pts.length) {
     head("interruption");
+    if (pts.length > 1) L.push(C.interruption_multi, "");
     for (const v of pts) L.push(`**${NAME[v]}** — ` + pack.valve[v].U05, "");
   }
 
@@ -691,19 +699,30 @@ function buildReportK4(sp, pack) {
     if (bn.tie) L.push("> " + pack.notice.tie, "");
     const names = bn.valves.map((v) => NAME[v]).join("، ");
     L.push(`**${names}** — ${k4BandLabel(pack, bn.band)}`, "");
+    L.push(C.bottleneck_meaning, "");
+    if (bn.tie) L.push(C.bottleneck_tie, "");
     if (a.choke_readings.every((c) => c.reading === "وصف موضع")) {
       L.push(pack.notice.choke_plain, "");
     }
   }
 
-  // ④ الشبكة
-  if (a.constraint_map.length) {
+  // ④ الشبكة والأنماط — مُثرىً بالسطح المركَّب (`138 §3/②-③`)
+  if (a.constraint_map.length || a.patterns_recognized.length) {
     head("network");
-    for (const c of a.constraint_map) {
-      const arrow = c.mutual ? "×" : "←";
-      L.push(`- **${c.kind}** · ${NAME[c.a]} ${arrow} ${NAME[c.b]}`);
+    if (a.constraint_map.length) {
+      L.push(C.network_lead, "");
+      for (const c of a.constraint_map) {
+        const arrow = c.mutual ? "×" : "←";
+        L.push(`- **${c.kind}** · ${NAME[c.a]} ${arrow} ${NAME[c.b]}`);
+        L.push("  " + fillPair(C.kind[c.kind], NAME[c.a], NAME[c.b]));
+      }
+      L.push("", C.network_limit, "");
     }
-    L.push("");
+    // الأنماط داخل القسم نفسه — لا قسم ثالث (`138 §3/③`)
+    if (a.patterns_recognized.length) {
+      for (const code of a.patterns_recognized) L.push("- " + C.pattern[code]);
+      L.push("", C.pattern_limit, "");
+    }
   }
 
   // ⑤ تحفّظ القراءة — ر-3: كتلة واحدة
@@ -749,6 +768,42 @@ function buildReportK4(sp, pack) {
   return [body, audit];
 }
 
+// سطح القراءة العابرة — **مخرج مستقل** (`138 §2`)
+// مشغِّله نطاقات K4 وحدها — لا يدخله رقم ولا نطاق من دائرة أخرى.
+const CROSSING_TRIGGERS = [
+  ["K4-XR-02", ["TI"]],
+  ["K4-XR-05", ["TI"]],
+  ["K4-XR-06", ["TI"]],
+  ["K4-XR-04", ["PER"]],
+  ["K4-XR-08", ["OR", "TM", "PF"]],
+];
+
+function crossingEntries(sp) {
+  const out = [];
+  for (const [code, valves] of CROSSING_TRIGGERS) {
+    if (valves.some((v) => K4.band(sp[v]) === "limited")) out.push(code);
+  }
+  return out.length ? ["K4-XR-03"].concat(out) : [];
+}
+
+/** يُصدَر **مستقلاً** — ولا يُستدعى من `buildReportK4` أبداً. */
+function buildCrossingSurface(sp, pack) {
+  if (!pack) pack = require("./k4_contentpack.json");
+  const codes = crossingEntries(sp);
+  if (!codes.length) return ["", { surface: "crossing", entries: [], rendered: false }];
+  const cr = pack.crossing;
+  const L = [`# ${cr.heading}`, "", cr.lead, ""];
+  for (const code of codes) L.push("- " + cr.entry[code]);
+  L.push("", cr.closing);
+  const body = L.join("\n");
+  SPG.outputGate(body, "سطح القراءة العابرة K4");
+  const audit = { surface: "crossing", entries: codes, rendered: true,
+                  spec_version: "138-K4-SURFACES v1.0" };
+  audit.surface_sha256 = require("crypto").createHash("sha256")
+    .update(body, "utf8").digest("hex").slice(0, 16);
+  return [body, audit];
+}
+
 /** تصيير JSON بترتيب مفاتيح وبمسافة بادئة — نظير `json.dumps(..., sort_keys=True, indent=N)`. */
 function jsonPy(v, indent, level) {
   level = level || 0;
@@ -770,7 +825,7 @@ function jsonPy(v, indent, level) {
 
 if (typeof module !== "undefined") {
   module.exports = {
-    buildReportK4, k4BandLabel, jsonPy, buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
+    buildReportK4, buildCrossingSurface, crossingEntries, k4BandLabel, fillPair, jsonPy, buildReportK2, validateSlots, resolveSlot, SlotResolutionError,
     purGate, purScanPacks, t6Guard, scanLockFields, scanLockDrift, intensityBlock, stripLocks, r11Block, buildReportK3, buildReportK3Head, dropHeading, bandLabel, altName, skillHeading, BAND_LABEL,
     verifyPacks, K2_CONTENT_ADAPTER, K3_EXTERNAL_CONTRACT, k3MissingContent, K3_CONTENT_ADAPTER,
   };

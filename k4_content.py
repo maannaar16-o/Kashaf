@@ -31,6 +31,14 @@ TRAINING_VOID = ["WM"]
 
 BANDS = ["limited", "core", "high", "OUT"]
 
+# قيود العبور المسطَّحة — `138 §2/①` حصراً (وما عداها سجلٌّ لا سطح)
+CROSSING_SURFACED = ["K4-XR-03", "K4-XR-02", "K4-XR-05",
+                     "K4-XR-06", "K4-XR-04", "K4-XR-08"]
+
+# أنواع العلاقة ذات الصياغة — «تحييد» بلا صياغة عمداً (`138 §4/①`)
+COMPOSED_KINDS = ["تعزيز", "مؤازرة", "هدر", "تفاقم"]
+PATTERN_CODES = ["K4-PAT-01", "K4-PAT-02", "K4-PAT-03", "K4-PAT-04"]
+
 
 class ContentGapError(RuntimeError):
     """نقصٌ في حزمة المحتوى — الإصدار موقوف بلا ملء صامت."""
@@ -82,6 +90,29 @@ class ContentPack:
                 gaps.append(f"training:{v}")
         if not self.raw.get("training_void", {}).get("WM"):
             gaps.append("training_void:WM")
+        # سطح القراءة العابرة (`138 §2`)
+        cr = self.raw.get("crossing", {})
+        for k in ("heading", "lead", "closing"):
+            if not cr.get(k):
+                gaps.append(f"crossing:{k}")
+        for code in CROSSING_SURFACED:
+            if not cr.get("entry", {}).get(code):
+                gaps.append(f"crossing:entry:{code}")
+        # السطح المركَّب (`138 §3`/`§4`)
+        cp = self.raw.get("composed", {})
+        for k in ("network_lead", "network_limit", "pattern_limit",
+                  "interruption_multi", "bottleneck_meaning", "bottleneck_tie"):
+            if not cp.get(k):
+                gaps.append(f"composed:{k}")
+        for k in COMPOSED_KINDS:
+            if not cp.get("kind", {}).get(k):
+                gaps.append(f"composed:kind:{k}")
+        if "تحييد" in cp.get("kind", {}):
+            # صياغةٌ لنوعٍ بصفر قيود = تحضيرٌ لما لا دليل عليه (`138 §4/①`)
+            gaps.append("composed:kind:تحييد:محظور — النوع بصفر قيود")
+        for c in PATTERN_CODES:
+            if not cp.get("pattern", {}).get(c):
+                gaps.append(f"composed:pattern:{c}")
         return gaps
 
     # ── الواجهة ────────────────────────────────────────────────────────
@@ -132,6 +163,24 @@ class ContentPack:
 
     def training_void(self, v):
         return self.raw["training_void"].get(v)
+
+    def crossing(self, code):
+        try:
+            return self.raw["crossing"]["entry"][code]
+        except KeyError:
+            raise ContentGapError(f"نص عبور مفقود crossing:entry:{code}")
+
+    def composed_kind(self, kind):
+        try:
+            return self.raw["composed"]["kind"][kind]
+        except KeyError:
+            raise ContentGapError(f"صياغة نوع مفقودة composed:kind:{kind}")
+
+    def composed_pattern(self, code):
+        try:
+            return self.raw["composed"]["pattern"][code]
+        except KeyError:
+            raise ContentGapError(f"صياغة نمط مفقودة composed:pattern:{code}")
 
     def sources(self):
         return dict(self.raw["_meta"]["sources"])

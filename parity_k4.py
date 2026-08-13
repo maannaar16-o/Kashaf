@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import k4_engine as E4
-from k4_report import build_report as R4
+from k4_report import build_report as R4, build_crossing_surface as X4
 
 CASES_PATH = os.path.join(HERE, "parity_cases_k4.json")
 
@@ -44,8 +44,8 @@ def sha(s):
 
 def build():
     cases = json.load(open(CASES_PATH, encoding="utf-8"))
-    h = {"k4": {}, "report": {}, "failure": {}}
-    raw = {"k4": {}, "report": {}, "failure": {}}
+    h = {"k4": {}, "report": {}, "crossing": {}, "failure": {}}
+    raw = {"k4": {}, "report": {}, "crossing": {}, "failure": {}}
 
     for name, sp in cases["k4"].items():
         s = canon(E4.run(sp).audit)
@@ -55,6 +55,11 @@ def build():
         body, _ = R4(sp)
         raw["report"][name] = body
         h["report"][name] = sha(body)
+        # سطح القراءة العابرة — مخرج مستقل يدخل البصمة بذاته
+        xbody, xa = X4(sp)
+        xs = xbody + "\u0000" + canon(xa)
+        raw["crossing"][name] = xs
+        h["crossing"][name] = sha(xs)
 
     for name, spec in cases["failure"].items():
         # القيم النصية "NaN"/"Infinity" تُحوَّل عدداً في الطرفين قبل التمرير —
@@ -72,7 +77,7 @@ def build():
         raw["failure"][name] = s
         h["failure"][name] = sha(s)
 
-    h["GLOBAL"] = sha(canon({"k4": h["k4"], "report": h["report"], "failure": h["failure"]}))
+    h["GLOBAL"] = sha(canon({"k4": h["k4"], "report": h["report"], "crossing": h["crossing"], "failure": h["failure"]}))
     return h, raw
 
 
@@ -99,16 +104,16 @@ def main():
     js_h, js_raw = js["hashes"], js["raw"]
 
     diverged = []
-    for group in ("k4", "report", "failure"):
+    for group in ("k4", "report", "crossing", "failure"):
         for key in sorted(set(py_h[group]) | set(js_h[group])):
             a, b = py_h[group].get(key), js_h[group].get(key)
             if a != b:
                 diverged.append((group, key, a, b))
 
-    total = sum(len(py_h[g]) for g in ("k4", "report", "failure"))
+    total = sum(len(py_h[g]) for g in ("k4", "report", "crossing", "failure"))
     print(f"{'المجموعة':<12}{'الحالات':<10}{'الحالة'}")
     print("-" * 78)
-    for g in ("k4", "report", "failure"):
+    for g in ("k4", "report", "crossing", "failure"):
         bad = sum(1 for d in diverged if d[0] == g)
         print(f"{g:<12}{len(py_h[g]):<10}{'✅ متطابق' if not bad else f'❌ {bad} تباعد'}")
     print("-" * 78)

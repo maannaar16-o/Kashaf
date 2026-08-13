@@ -24,6 +24,13 @@ from sp_gate import output_gate            # ح-4 · ح-5 · DEC-183
 AR_NUM = "١٢٣٤٥٦٧٨٩"
 
 
+def fill_pair(tpl, a, b):
+    """تعبئة قالب الطرفين — **صريحة عمداً** (`ن-8`): البديل يشمل **كل**
+    المواضع. الاتّكال على `replace` الضمني أنتج تباعداً حقيقياً — فـJS
+    يبدّل أول موضع فقط وبايثون يبدّل الكلّ (رُصد ببناء `DEC-268`)."""
+    return tpl.replace("{أ}", a).replace("{ب}", b)
+
+
 def build_report(sp, pack: ContentPack = None):
     pack = (pack or ContentPack()).require()
     res = run(sp, content=pack)
@@ -54,10 +61,13 @@ def build_report(sp, pack: ContentPack = None):
             L += [pack.valve(v, "U04"), ""]
         # OUT: لا نص حالة — الوعاء لا يُصنَّف (ر-5)
 
-    # ② مواضع الانقطاع
+    # ② مواضع الانقطاع — مُثرىً بالسطح المركَّب (`138 §3/②`)
     pts = a["interruption_points"]
+    C = pack.raw["composed"]
     if pts:
         head("interruption")
+        if len(pts) > 1:
+            L += [C["interruption_multi"], ""]
         for v in pts:
             L += [f"**{USER_NAME[v]}** — " + pack.valve(v, "U05"), ""]
 
@@ -69,16 +79,28 @@ def build_report(sp, pack: ContentPack = None):
             L += ["> " + pack.raw["notice"]["tie"], ""]
         names = "، ".join(USER_NAME[v] for v in bn["valves"])
         L += [f"**{names}** — {pack.band_label(bn['band'])}", ""]
+        L += [C["bottleneck_meaning"], ""]
+        if bn["tie"]:
+            L += [C["bottleneck_tie"], ""]
         if all(c["reading"] == "وصف موضع" for c in a["choke_readings"]):
             L += [pack.raw["notice"]["choke_plain"], ""]
 
-    # ④ الشبكة — القيود المفعَّلة
-    if a["constraint_map"]:
+    # ④ الشبكة والأنماط — مُثرىً بالسطح المركَّب (`138 §3/②-③`)
+    if a["constraint_map"] or a["patterns_recognized"]:
         head("network")
-        for c in a["constraint_map"]:
-            arrow = "×" if c["mutual"] else "←"
-            L += [f"- **{c['kind']}** · {USER_NAME[c['a']]} {arrow} {USER_NAME[c['b']]}"]
-        L.append("")
+        if a["constraint_map"]:
+            L += [C["network_lead"], ""]
+            for c in a["constraint_map"]:
+                arrow = "×" if c["mutual"] else "←"
+                L += [f"- **{c['kind']}** · {USER_NAME[c['a']]} {arrow} {USER_NAME[c['b']]}"]
+                L += ["  " + fill_pair(pack.composed_kind(c["kind"]),
+                                       USER_NAME[c["a"]], USER_NAME[c["b"]])]
+            L += ["", C["network_limit"], ""]
+        # الأنماط داخل القسم نفسه — لا قسم ثالث (`138 §3/③`)
+        if a["patterns_recognized"]:
+            for code in a["patterns_recognized"]:
+                L += ["- " + pack.composed_pattern(code)]
+            L += ["", C["pattern_limit"], ""]
 
     # ⑤ تحفّظ القراءة — ر-3: كتلة واحدة موحَّدة
     inv = {code: v for v, code in RESERVE_CODE.items()}
@@ -124,6 +146,47 @@ def build_report(sp, pack: ContentPack = None):
     a["report_sha256"] = hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
     output_gate(body, "تقرير K4")       # ح-4/ح-5 — يوقف الإصدار عند التسرّب
     return body, a
+
+
+# --------------------------------------------------------------------------- #
+# سطح القراءة العابرة — **مخرج مستقل** (`138 §2` · `133 §3/①`)
+# --------------------------------------------------------------------------- #
+# مشغِّله نطاقات $K_4$ وحدها — لا يدخله رقم ولا نطاق من دائرة أخرى (العزل مصان).
+CROSSING_TRIGGERS = [
+    ("K4-XR-02", ("TI",)),
+    ("K4-XR-05", ("TI",)),
+    ("K4-XR-06", ("TI",)),
+    ("K4-XR-04", ("PER",)),
+    ("K4-XR-08", ("OR", "TM", "PF")),
+]
+
+
+def crossing_entries(sp):
+    """القيود المستحقة للعرض — و`K4-XR-03` يتصدَّر متى ظهر السطح."""
+    out = []
+    for code, valves in CROSSING_TRIGGERS:
+        if any(band(sp[v]) == "limited" for v in valves):
+            out.append(code)
+    return (["K4-XR-03"] + out) if out else []
+
+
+def build_crossing_surface(sp, pack: ContentPack = None):
+    """يُصدَر **مستقلاً** — ولا يُستدعى من `build_report` أبداً."""
+    pack = (pack or ContentPack()).require()
+    codes = crossing_entries(sp)
+    if not codes:
+        return "", {"surface": "crossing", "entries": [], "rendered": False}
+    cr = pack.raw["crossing"]
+    L = [f"# {cr['heading']}", "", cr["lead"], ""]
+    for code in codes:
+        L += ["- " + pack.crossing(code)]
+    L += ["", cr["closing"]]
+    body = "\n".join(L)
+    output_gate(body, "سطح القراءة العابرة K4")
+    audit = {"surface": "crossing", "entries": codes, "rendered": True,
+             "spec_version": "138-K4-SURFACES v1.0"}
+    audit["surface_sha256"] = hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
+    return body, audit
 
 
 if __name__ == "__main__":
