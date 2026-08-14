@@ -210,7 +210,50 @@ def test_declared_void():
                 if w in body]
     check("7 صفر شرحٍ مؤلَّف للخلوّ في المتن", not invented, str(invented))
 
-# -- 8) بصمة الانحدار ------------------------------------------------------
+# -- 8) القراءات الثلاث: قواعدُ مختومة تُقاس باسمها (`DEC-282`) ------------
+def test_sealed_readings():
+    """`DEC-278 §4` رفعها قراءاتٍ، و`DEC-282` ختمها قواعد.
+
+    والبصمة تُثبت **عدم التغيّر** لا **الصحّة** (`DEC-281 §4`) — فتُقاس
+    كلٌّ منها **باسمها** على حالةٍ تفصلها عن أختها.
+    """
+    # ① التقاطع: القطبي يُقدَّم، وإلا فأعلى مهيمنٍ لكلٍّ
+    _b, a = TR.build_report(CASES["team"]["P001-الثلاثي-المعتمد"])
+    by = {p["a"] + "×" + p["b"]: p.get("by") for p in a["pairs"]}
+    check("8/① الزوج القطبي يُقدَّم حيث وُجد",
+          by.get("T-01×T-02") == "polar" and by.get("T-01×T-03") == "polar",
+          str(by))
+    top = [p for p in a["pairs"] if p.get("by") == "top_dominant"]
+    ok_top = all(
+        p["lens_a"] == TE._rank(m["sp"], TE.profile(m["sp"])["dominant"])[0]
+        for p in top
+        for m in CASES["team"]["P001-الثلاثي-المعتمد"] if m["code"] == p["a"])
+    check("8/① وإلا فأعلى مهيمنٍ لكلٍّ", bool(top) and ok_top,
+          str(len(top)) + " صفّاً بلا زوجٍ قطبي")
+
+    # ② التركيبة الموثَّقة: **الاحتواء التام** لا التقاطع الجزئي
+    cb = a["collective_blind"]
+    unc = set(cb["uncovered"])
+    pack = TE.ContentPack().require()
+    partial = [c for c in pack.raw["combo"]
+               if set(c["lenses"]) <= set(cb["team_dominant"])
+               and {d for d in TE.LENSES if "$" + d + "$" in c["need"]} & unc]
+    check("8/② الاحتواء التام يُصفّي التقاطع الجزئي",
+          len(partial) > len(cb["documented"]),
+          str(len(partial)) + " جزئياً ← " + str(len(cb["documented"])) + " تامّاً")
+    bad = [d for d in cb["documented"] if not set(d["need_codes"]) <= unc]
+    check("8/② وكل مستدعاةٍ محتواةٌ تماماً في الفجوة", not bad, str(bad))
+
+    # ③ الارتداد: **كل** عدسةٍ مهيمنة لا واحدة
+    for name in ("P001-الثلاثي-المعتمد", "ورشة-أربعة"):
+        case = CASES["team"][name]
+        _b2, a2 = TR.build_report(case)
+        want = sum(len(TE.profile(m["sp"])["dominant"]) for m in case)
+        got = len([r for r in a2["rebound"] if r.get("lens")])
+        check("8/③ الارتداد يعرض كل مهيمن — " + name, want == got,
+              str(got) + "/" + str(want))
+
+# -- 9) بصمة الانحدار ------------------------------------------------------
 def fingerprint():
     parts = []
     for name in sorted(CASES["team"]):
@@ -238,6 +281,7 @@ if __name__ == "__main__":
     test_dry_run()
     test_deferral_guard()
     test_declared_void()
+    test_sealed_readings()
     print("-" * 76)
     print("   بصمة انحدار الفريق: " + fingerprint())
     print("-" * 76)
