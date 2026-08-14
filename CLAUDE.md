@@ -21,12 +21,12 @@ Without the first step, `parity_reports` and `test_packs` fail with `Cannot find
 
 ## Verification suite — the acceptance gate
 
-All 24 tools must pass, and the six frozen fingerprints must match **verbatim** — five are *parity* fingerprints (Python ⇄ JS) and the sixth is a *regression* fingerprint (`test_report_team.py`; the team layer is Python-only, see Architecture). Any deviation ⇒ stop and report; do not commit. A fingerprint may only move by a prior, justified declaration inside a sealed decision — **a silent shift is a rejected outcome**, not a new baseline.
+All 25 tools must pass, and the six frozen fingerprints must match **verbatim** — five are *parity* fingerprints (Python ⇄ JS) and the sixth is a *regression* fingerprint (`test_report_team.py`; the team layer is Python-only, see Architecture). Any deviation ⇒ stop and report; do not commit. A fingerprint may only move by a prior, justified declaration inside a sealed decision — **a silent shift is a rejected outcome**, not a new baseline. (`DEC-280 §6` is the worked example: the team fingerprint moved, and the decision states what changed, that it was measured before the new case was added, and therefore that behavior on the existing cases did not shift.)
 
 **Run the whole gate with one command — `gate.py` is the single authority** (`DEC-273`): it holds the tool list and the six expected fingerprints and matches them literally. CI (`.github/workflows/gate.yml`) runs exactly this on every push and PR — so never maintain a second copy of the list anywhere.
 
 ```bash
-python3 gate.py                 # setup + 24 tools + 6 fingerprints + the six self-checks below
+python3 gate.py                 # setup + 25 tools + 6 fingerprints + the six self-checks below
 python3 gate.py --list          # the list and its fingerprints, without running
 ```
 
@@ -61,8 +61,9 @@ python3 test_report_k2.py       ;  python3 test_report_k3.py
 python3 test_guard_sp.py        ;  python3 test_guard_lock.py
 python3 guard_interp.py
 python3 test_report_k4.py       ;  python3 k4_content.py
-python3 test_report_team.py     # fingerprint 859f0a3241b5ad60 — team-composition contract
+python3 test_report_team.py     # fingerprint 21532a8aba568a2d — team-composition contract
 python3 test_workshop.py        # workshop-path contract — supervisor-as-admission-gate
+python3 test_owner_console.py   # owner-console contract — conditional ح-4 lift, isolation, declared voids
 python3 test_site_build.py      # site/app build guard — also verifies docs/ is not stale
 python3 test_supervisor_build.py # supervisor-tool build guard — *executes* the generated bundle
 python3 supervisor.py --self-test
@@ -92,6 +93,8 @@ The measured scope is **eight surfaces**: engine logic · report text · supervi
 
 **Workshop path (`DEC-277`/`DEC-279`).** A separate, code-gated path for coach-run sessions. The rule it establishes: **a published promise is not revoked to add a path — the path is added declaring its own terms.** The public site keeps its promise verbatim ("your answers never leave your device"); the workshop surface announces the opposite up front, and there is **no retroactive migration** of anyone who answered under the old promise. `ح-4` (no `SP%` reaches a reader) is lifted **only on the owner's workshop surface**, on the `DEC-186`-for-K4 precedent — a lift bounded to its scope, resting on the pre-existing "explicit prior permission" clause, not an invented exception. `Workshop.html` (built by `build_workshop_html.py`) **narrows** the network lock rather than lifting it: every connection forbidden except one same-origin `POST /submit`. `workshop_server.py` is stdlib-only with exactly two routes (everything else 404, no path derived from the request) and binds `127.0.0.1` unless the owner passes an explicit flag. `workshop_store.py` makes the supervisor an **admission gate, not a later check** — a payload is graded before storage and a report that fails the audit is returned with its grade, never silently stored. **Zero credentials are stored** (no password, no hash): the owner issues the code, and the code↔name mapping lives outside the store, so the store holds a code and a report — never a name.
 
+**Owner console (`DEC-280`).** `owner_console.py` reads the workshop harvest for the owner — raw scores, grades and the team map. It is an **operator tool, not a web page**: never served, never bundled into a browser pack (`DEC-254` precedent), which is what keeps the team layer's deferral guard valid. It carries **no fingerprint by design** — its output follows changing harvest data, so freezing one would be a false claim of stability; what is measured is *boundary behavior*, not print shape. The `ح-4` lift here is **conditional and executed, not recited**: every record's consent is matched against its approved text literally before any raw number from it is shown, a record without matching consent has its raw values **withheld with the withholding announced** (a silently dropped record would read as never received), and the withholding message itself leaks no number. The console prints its own **declared voids** — no temporal difference (`DEC-244`), no cohort-derived norm, no discrimination test on four, no competence verdict (the mandatory caution is read from the team pack, not copied) — on the reasoning that a limit written in a distant document is forgotten while one printed in the tool is seen. `GAP-TEAM-02` was found by *running* it, not by review: two members sharing a top dominant (`A–A`) have no sealed cell in the 28-pair matrix, and it is resolved by **declaring the void with both lenses shown** (`م-8`) rather than inventing a cell or a fallback rule — the choice between sealing new text or ratifying the void is the owner's.
+
 **Field-data channel (owner-operated).** `contrib_pull.py` drains the contribution store and validates each record against `RAWAHIL-CONTRIB-v1` literally (bad records are quarantined and reported, never silently fixed or dropped); `contrib_analyze.py` produces the four-axis preliminary reading — it **describes and ranks, never judges**: no invented threshold (`ن-7/④`), no validity claim (`DEC-246`). Credentials come from the owner's environment variables and are never committed; all four outputs are gitignored (field data is not a knowledge document). These tools are outside the gate's tool list by design.
 
 **Golden/regression anchors.** `golden_k2.json`, `golden_k3.json`, `parity_cases.json`, `parity_cases_k4.json`, `team_cases.json` are frozen references; `interp_registry.json` registers every approved interpolation (`ح-6`); `k2_lock_registry.json` governs lock phrasing (`ح-7`). Active guards: `ح-1`…`ح-3` (packs), `ح-4` (`SP%`), `ح-5` (unregistered percentage), `ح-6`, `ح-7`, `ص-1…ص-3` (K3), `ت-6` (no threshold).
@@ -112,7 +115,7 @@ Filename prefixes are the map — the flat layout is indexed, not sorted:
 | `51`/`52-MATRIX-*` | dyadic, polar, fallback, blindspot, lookalike and retrieval registries |
 | `55-USER-*` | user-layer prose per dimension |
 | `57`–`99` | K3 build chain, parity/port records, gap and defect dossiers |
-| `100`–`149` | numbered analysis docs, one per decision or decision cluster |
+| `100`–`150` | numbered analysis docs, one per decision or decision cluster |
 
 `00-INDEX_Master_Knowledge_Base_Index.md` lists them all; `00-CROSSMAP_K1_Code_Equivalence_Table.md` maps K1 concepts to code.
 

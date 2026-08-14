@@ -57,14 +57,15 @@ TOOLS = [
     ("test_guard_lock.py",        None),
     ("guard_interp.py",           None),
     ("test_report_k4.py",         None),
-    ("test_report_team.py",       "859f0a3241b5ad60"),
+    ("test_report_team.py",       "21532a8aba568a2d"),
     ("test_workshop.py",          None),
+    ("test_owner_console.py",     None),
     ("k4_content.py",             None),
     ("test_site_build.py",        None),
     ("test_supervisor_build.py",  None),
     ("supervisor.py --self-test", None),
 ]
-EXPECTED_COUNT = 24
+EXPECTED_COUNT = 25
 
 # الوثائق التي تصف البوابة — **تُقابَل بها ولا تُصدَّق**
 DOCS = ["CLAUDE.md", "00-HANDOVER_2026-08-05_Resume_Directive.md"]
