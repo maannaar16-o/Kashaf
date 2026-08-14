@@ -60,8 +60,8 @@ Mode 03-Build (استئناف)
 | **`2711c24d8155819b`** | `parity_py` | 125 حالة منطق |
 | **`36ae94bfd5a8b60f`** | `parity_reports` | 142 تقريراً |
 | **`6b324f996856eac3`** | `parity_supervisor` | 429 درجة حكم |
-| **`e32207bbb8853560`** | `parity_k4` | 387 حالة (منطق + تقرير **وكتلة تدقيقه** + سطح عابر) |
-| **`a0f83d78b8adbf53`** | `parity_supervisor_k4` | 80 حمولة · 982 درجة حكم |
+| **`7cdb1561ceb38a17`** | `parity_k4` | 387 حالة (منطق + تقرير **وكتلة تدقيقه** + سطح عابر) |
+| **`e0aef05e46dce973`** | `parity_supervisor_k4` | 80 حمولة · 982 درجة حكم |
 | **`21532a8aba568a2d`** | `test_report_team` | **بصمة انحدار** لا تكافؤ — طبقة الفريق بايثون وحدها (سابقة `DEC-254`) |
 
 > **قاعدة الزحزحة المُعلنة:** بصمةٌ لا تُزاح إلا بإعلانٍ مسبَّب في قرار — كما زُيحت بصمة $K_4$ عند مزامنة `open_debts` (`DEC-267`) ثم عند بناء السطحين (`DEC-268`). **والزحزحة الصامتة مرفوضة.**
@@ -121,8 +121,8 @@ python3 gate.py                 # التهيئة + 25 أداة + 6 بصمات + 
 python3 parity_py.py            # 2711c24d8155819b — 125 حالة منطق
 python3 parity_reports.py       # 36ae94bfd5a8b60f — 142 تقريراً
 python3 parity_supervisor.py    # 6b324f996856eac3 — 429 درجة حكم
-python3 parity_k4.py            # e32207bbb8853560 — 387 حالة K4
-python3 parity_supervisor_k4.py # a0f83d78b8adbf53 — 982 درجة حكم على K4
+python3 parity_k4.py            # 7cdb1561ceb38a17 — 387 حالة K4
+python3 parity_supervisor_k4.py # e0aef05e46dce973 — 982 درجة حكم على K4
 python3 parity_messages.py      # 15 مساراً
 python3 parity_isolation.py     # 826 نصّاً
 python3 parity_surface.py       # 3214 حقلاً

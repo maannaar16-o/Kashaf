@@ -180,7 +180,80 @@ def test_deferral_guard():
           else "بايثون وحدها (سابقة DEC-254) - والحرس يُقلب عند بناء السطح")
 
 
-# -- 7) بصمة الانحدار ------------------------------------------------------
+# -- 7) الخلوّ المُعلَن: قاعدةٌ دائمة بختم المالك (`DEC-281`) --------------
+def test_declared_void():
+    """`GAP-TEAM-02` مُغلقة بقاعدة: تقاطعٌ على العدسة نفسها **يُعلَن خلوّه**.
+
+    والبصمة تُثبت **عدم التغيّر** لا **الصحّة** — فتُقاس القاعدة باسمها:
+    لا خليةٌ تُخترع، ولا بديلٌ يُنتقى، ولا جملةٌ تُكتب في الصفّ.
+    """
+    case = CASES["team"]["تقاطع-على-العدسة-نفسها"]
+    body, audit = TR.build_report(case)
+    pr = audit["pairs"][0]
+
+    check("7 الخلوّ مُعلَن لا مُخترَعة له خلية",
+          pr["dyad"] is None and pr["by"] == "same_lens", str(pr)[:70])
+    check("7 ولا بديلٌ يُنتقى — العدستان كما هما",
+          pr["lens_a"] == pr["lens_b"] == "A",
+          pr["lens_a"] + "/" + pr["lens_b"])
+
+    row = [l for l in body.split("\n") if l.startswith("| X-01 × X-02 ")]
+    check("7 صفٌّ واحد للزوج في المصفوفة", len(row) == 1, str(len(row)))
+    if row:
+        cells = [c.strip() for c in row[0].strip("|").split("|")]
+        check("7 التقاطع يُطبع بعدستيه", cells[1] == "A–A", cells[1])
+        check("7 وبقيّة الخانات شرطات — صفر جملةٍ مؤلَّفة",
+              cells[2:] == ["—"] * 4, str(cells[2:]))
+
+    # ولا لفظٌ يشرح الخلوّ في المتن: الشرح في الحوكمة لا في تقرير القارئ
+    invented = [w for w in ("العدسة نفسها", "لا خلية", "غير متقاطع", "تعذّر")
+                if w in body]
+    check("7 صفر شرحٍ مؤلَّف للخلوّ في المتن", not invented, str(invented))
+
+# -- 8) القراءات الثلاث: قواعدُ مختومة تُقاس باسمها (`DEC-282`) ------------
+def test_sealed_readings():
+    """`DEC-278 §4` رفعها قراءاتٍ، و`DEC-282` ختمها قواعد.
+
+    والبصمة تُثبت **عدم التغيّر** لا **الصحّة** (`DEC-281 §4`) — فتُقاس
+    كلٌّ منها **باسمها** على حالةٍ تفصلها عن أختها.
+    """
+    # ① التقاطع: القطبي يُقدَّم، وإلا فأعلى مهيمنٍ لكلٍّ
+    _b, a = TR.build_report(CASES["team"]["P001-الثلاثي-المعتمد"])
+    by = {p["a"] + "×" + p["b"]: p.get("by") for p in a["pairs"]}
+    check("8/① الزوج القطبي يُقدَّم حيث وُجد",
+          by.get("T-01×T-02") == "polar" and by.get("T-01×T-03") == "polar",
+          str(by))
+    top = [p for p in a["pairs"] if p.get("by") == "top_dominant"]
+    ok_top = all(
+        p["lens_a"] == TE._rank(m["sp"], TE.profile(m["sp"])["dominant"])[0]
+        for p in top
+        for m in CASES["team"]["P001-الثلاثي-المعتمد"] if m["code"] == p["a"])
+    check("8/① وإلا فأعلى مهيمنٍ لكلٍّ", bool(top) and ok_top,
+          str(len(top)) + " صفّاً بلا زوجٍ قطبي")
+
+    # ② التركيبة الموثَّقة: **الاحتواء التام** لا التقاطع الجزئي
+    cb = a["collective_blind"]
+    unc = set(cb["uncovered"])
+    pack = TE.ContentPack().require()
+    partial = [c for c in pack.raw["combo"]
+               if set(c["lenses"]) <= set(cb["team_dominant"])
+               and {d for d in TE.LENSES if "$" + d + "$" in c["need"]} & unc]
+    check("8/② الاحتواء التام يُصفّي التقاطع الجزئي",
+          len(partial) > len(cb["documented"]),
+          str(len(partial)) + " جزئياً ← " + str(len(cb["documented"])) + " تامّاً")
+    bad = [d for d in cb["documented"] if not set(d["need_codes"]) <= unc]
+    check("8/② وكل مستدعاةٍ محتواةٌ تماماً في الفجوة", not bad, str(bad))
+
+    # ③ الارتداد: **كل** عدسةٍ مهيمنة لا واحدة
+    for name in ("P001-الثلاثي-المعتمد", "ورشة-أربعة"):
+        case = CASES["team"][name]
+        _b2, a2 = TR.build_report(case)
+        want = sum(len(TE.profile(m["sp"])["dominant"]) for m in case)
+        got = len([r for r in a2["rebound"] if r.get("lens")])
+        check("8/③ الارتداد يعرض كل مهيمن — " + name, want == got,
+              str(got) + "/" + str(want))
+
+# -- 9) بصمة الانحدار ------------------------------------------------------
 def fingerprint():
     parts = []
     for name in sorted(CASES["team"]):
@@ -207,6 +280,8 @@ if __name__ == "__main__":
     test_contract()
     test_dry_run()
     test_deferral_guard()
+    test_declared_void()
+    test_sealed_readings()
     print("-" * 76)
     print("   بصمة انحدار الفريق: " + fingerprint())
     print("-" * 76)
