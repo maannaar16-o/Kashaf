@@ -198,11 +198,18 @@ def pair_matrix(mem, pack):
 
 def rebound(mem, pack):
     """§7 — مسار الارتداد لكل عضوٍ عن عدسته المهيمنة الأعلى (`51-MATRIX-03`)."""
+    # **كل** عدسةٍ مهيمنة لكل عضو — لا اختيار واحدةٍ منها. والتشغيل المعتمد
+    # `56-TEAM-P001` يعرض لـ`T-01` عدسته الثانية (`C`) لا الأولى (`A`)، فلا
+    # قاعدة اختيارٍ تُستخرج منه؛ والعرض الكامل **يُغني عن قاعدةٍ تُخترع**
+    # ويشمل ما عرضه (`م-8`: ما لا سند له لا يُدَّعى).
     out = []
     for m in mem:
         dom = _rank(m["sp"], m["profile"]["dominant"])
-        out.append({"code": m["code"], "lens": dom[0] if dom else None,
-                    "has_path": bool(dom)})
+        if not dom:
+            out.append({"code": m["code"], "lens": None, "has_path": False})
+            continue
+        for d in dom:
+            out.append({"code": m["code"], "lens": d, "has_path": True})
     return out
 
 

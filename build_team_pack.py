@@ -29,6 +29,7 @@ SRC = {
     "blind":   "51-MATRIX-04_Shared_Blindspots.md",
     "rebound": "51-MATRIX-03_Fallback_Map.md",
     "charter": "56-TEAM-00_Team_Composition_Protocol_Charter.md",
+    "leader":  "56-REPORT-ENGINE-APPENDIX-B_Leader_Mode_Conversion_Rule.md",
 }
 LENSES = ["A", "R", "C", "O", "S", "E", "St", "H"]
 
@@ -106,6 +107,15 @@ def combos(text):
     return out
 
 
+def banner(text):
+    """`APPENDIX-B §4/4` — التنبيه الإلزامي في رأس كل تقرير قائد.
+    يُفكّ من عمود «البديل المعتمد» حرفياً — لا يُعاد صوغه."""
+    m = re.search(r'تنبيه إلزامي في رأس كل تقرير قائد: "([^"]+)"', text)
+    if not m:
+        sys.exit("❌ التنبيه الإلزامي غير موجود في `APPENDIX-B §4`")
+    return m.group(1)
+
+
 def charter_bits(text):
     """العناوين التسعة من `§2` والأقفال من `§4` — تُقرأ ولا تُصاغ."""
     heads = re.findall(r"^\| (\d) \| ([^|]+) \| [^|]* \| [^|]* \|$", text, re.M)
@@ -133,6 +143,7 @@ def main():
     r = rebounds(read(SRC["rebound"]))
     c = combos(read(SRC["blind"]))
     heading, locks = charter_bits(read(SRC["charter"]))
+    bn = banner(read(SRC["leader"]))
     pack = {
         "_meta": {
             "pack": "CONTENT_TEAM", "version": "1.0", "sealed_by": "DEC-278",
@@ -143,7 +154,12 @@ def main():
             "approval": "DEC-039 — اعتماد حزمة المصفوفات السبع M-00…M-06",
         },
         "dyad": d, "polar": p, "blind": b, "rebound": r, "combo": c,
-        "heading": heading, "lock": locks,
+        "heading": heading, "lock": locks, "banner": bn,
+        # الوسمان الإجرائيان الملازمان لكل مخرج (`DEC-040`/`DEC-041` ·
+        # `51-MATRIX-06 §15` · `DEC-219`) — بصيغتهما في `k2_report` حرفياً،
+        # فلا صيغة ثانية لوسمٍ واحد.
+        "tag": ["توحيد تشغيلي مؤقت — GAP-A-01 — قابل للترقية",
+                "توحيد تشغيلي مؤقت — GAP-A-02 — قابل للمراجعة"],
     }
     io.open(OUT, "w", encoding="utf-8").write(
         json.dumps(pack, ensure_ascii=False, sort_keys=True, indent=1) + "\n")

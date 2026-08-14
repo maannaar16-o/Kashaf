@@ -8,11 +8,13 @@
    "blind": "51-MATRIX-04_Shared_Blindspots.md",
    "charter": "56-TEAM-00_Team_Composition_Protocol_Charter.md",
    "dyad": "51-MATRIX-01_Full_Dyadic.md",
+   "leader": "56-REPORT-ENGINE-APPENDIX-B_Leader_Mode_Conversion_Rule.md",
    "polar": "51-MATRIX-02_Polar_Pairs.md",
    "rebound": "51-MATRIX-03_Fallback_Map.md"
   },
   "version": "1.0"
  },
+ "banner": "أداة تخادم وتشكيل، لا أداة تقييم أداء أو قرار توظيفي",
  "blind": {
   "A": {
    "major": "شلل المعالجة + إغفال الإشارة الوجدانية",
@@ -445,5 +447,9 @@
    "pattern": "قفز عشوائي بين المآلات ← تشتت كامل ← ذهول إدراكي",
    "trigger": "ضغط فوق السعة"
   }
- }
+ },
+ "tag": [
+  "توحيد تشغيلي مؤقت — GAP-A-01 — قابل للترقية",
+  "توحيد تشغيلي مؤقت — GAP-A-02 — قابل للمراجعة"
+ ]
 }
