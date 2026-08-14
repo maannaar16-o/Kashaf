@@ -104,7 +104,12 @@ def build_report(members, pack: ContentPack = None):
           _cells([":---"] * 6)]
     for pr in a["pairs"]:
         if not pr.get("dyad"):
-            L += [_cells([f"{pr['a']} × {pr['b']}", "—", "—", "—", "—", "—"])]
+            # الخلوّ يُعلَن بعدستيه لا بشرطةٍ صمّاء: تقاطعٌ على العدسة نفسها
+            # لا خليةَ مختومةً له في `51-MATRIX-01` (`GAP-TEAM-02`). ولا
+            # جملةَ ربطٍ تُكتب هنا — الرمزان مختومان والباقي شرطات.
+            cross = (f"{pr['lens_a']}–{pr['lens_b']}"
+                     if pr.get("lens_a") and pr.get("lens_b") else "—")
+            L += [_cells([f"{pr['a']} × {pr['b']}", cross, "—", "—", "—", "—"])]
             continue
         d = P["dyad"][pr["dyad"]]
         L += [_cells([f"**{pr['a']} × {pr['b']}**",

@@ -21,12 +21,12 @@ Both outputs — plus `Supervisor.html` (built by `build_supervisor_html.py`) �
 
 ## Verification suite — the acceptance gate
 
-All 24 tools must pass, and the six frozen fingerprints must match **verbatim** — five are *parity* fingerprints (Python ⇄ JS) and the sixth is a *regression* fingerprint (`test_report_team.py`; the team layer is Python-only, see below). Any deviation ⇒ stop and report; do not commit.
+All 25 tools must pass, and the six frozen fingerprints must match **verbatim** — five are *parity* fingerprints (Python ⇄ JS) and the sixth is a *regression* fingerprint (`test_report_team.py`; the team layer is Python-only, see below). Any deviation ⇒ stop and report; do not commit.
 
 **Run the whole gate with one command — `gate.py` is the single authority** (`DEC-273`): it holds the tool list and the five expected fingerprints, matches them literally, and additionally refuses a tool that exists on disk but is not listed, a fingerprint or tool list in `CLAUDE.md`/`00-HANDOVER` that has drifted from it, and any generated artifact that has become git-tracked. CI (`.github/workflows/gate.yml`) runs exactly this on every push and PR — so never maintain a second copy of the list anywhere.
 
 ```bash
-python3 gate.py                 # setup + 24 tools + 6 fingerprints + 6 gate self-checks
+python3 gate.py                 # setup + 25 tools + 6 fingerprints + 6 gate self-checks
 python3 gate.py --list          # the list and its fingerprints, without running
 ```
 
@@ -48,8 +48,9 @@ python3 test_report_k2.py       ;  python3 test_report_k3.py
 python3 test_guard_sp.py        ;  python3 test_guard_lock.py
 python3 guard_interp.py
 python3 test_report_k4.py       ;  python3 k4_content.py
-python3 test_report_team.py     # fingerprint 859f0a3241b5ad60 — team-composition contract
+python3 test_report_team.py     # fingerprint 21532a8aba568a2d — team-composition contract
 python3 test_workshop.py        # workshop-path contract — supervisor-as-admission-gate
+python3 test_owner_console.py   # owner-console contract — conditional ح-4 lift, isolation, declared voids
 python3 test_site_build.py      # site/app build guard — also verifies docs/ is not stale
 python3 test_supervisor_build.py # supervisor-tool build guard — *executes* the generated bundle
 python3 supervisor.py --self-test

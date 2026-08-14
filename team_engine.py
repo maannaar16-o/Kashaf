@@ -189,6 +189,17 @@ def pair_matrix(mem, pack):
                 if pick:
                     break
             lx, ly, pcode = pick if pick else (da[0], db[0], None)
+            # **تقاطعٌ على العدسة نفسها لا خليةَ مختومةً له**: `51-MATRIX-01`
+            # جدولُ ثمانيةٍ وعشرين زوجاً **متمايزة** (`C(8,2)`)، والميثاق
+            # `§2/5` يقول «بين كل عضوين **متقاطعين**». فلا تُخترع خلية ولا
+            # يُنتقى بديلٌ بقاعدةٍ بلا سند — **يُعلَن الخلوّ** (`م-8`)،
+            # ويُرفع `GAP-TEAM-02` للمالك. والعدستان تُعرضان كما هما فيرى
+            # القارئ **سبب** الخلوّ بلا جملةٍ مؤلَّفة.
+            if lx == ly:
+                out.append({"a": a["code"], "b": b["code"], "lens_a": lx,
+                            "lens_b": ly, "dyad": None, "polar": pcode,
+                            "by": "same_lens", "reason": "same_lens"})
+                continue
             key = _dyad_key(lx, ly, pack)
             out.append({"a": a["code"], "b": b["code"], "lens_a": lx,
                         "lens_b": ly, "dyad": key, "polar": pcode,
