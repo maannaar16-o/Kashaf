@@ -180,7 +180,37 @@ def test_deferral_guard():
           else "بايثون وحدها (سابقة DEC-254) - والحرس يُقلب عند بناء السطح")
 
 
-# -- 7) بصمة الانحدار ------------------------------------------------------
+# -- 7) الخلوّ المُعلَن: قاعدةٌ دائمة بختم المالك (`DEC-281`) --------------
+def test_declared_void():
+    """`GAP-TEAM-02` مُغلقة بقاعدة: تقاطعٌ على العدسة نفسها **يُعلَن خلوّه**.
+
+    والبصمة تُثبت **عدم التغيّر** لا **الصحّة** — فتُقاس القاعدة باسمها:
+    لا خليةٌ تُخترع، ولا بديلٌ يُنتقى، ولا جملةٌ تُكتب في الصفّ.
+    """
+    case = CASES["team"]["تقاطع-على-العدسة-نفسها"]
+    body, audit = TR.build_report(case)
+    pr = audit["pairs"][0]
+
+    check("7 الخلوّ مُعلَن لا مُخترَعة له خلية",
+          pr["dyad"] is None and pr["by"] == "same_lens", str(pr)[:70])
+    check("7 ولا بديلٌ يُنتقى — العدستان كما هما",
+          pr["lens_a"] == pr["lens_b"] == "A",
+          pr["lens_a"] + "/" + pr["lens_b"])
+
+    row = [l for l in body.split("\n") if l.startswith("| X-01 × X-02 ")]
+    check("7 صفٌّ واحد للزوج في المصفوفة", len(row) == 1, str(len(row)))
+    if row:
+        cells = [c.strip() for c in row[0].strip("|").split("|")]
+        check("7 التقاطع يُطبع بعدستيه", cells[1] == "A–A", cells[1])
+        check("7 وبقيّة الخانات شرطات — صفر جملةٍ مؤلَّفة",
+              cells[2:] == ["—"] * 4, str(cells[2:]))
+
+    # ولا لفظٌ يشرح الخلوّ في المتن: الشرح في الحوكمة لا في تقرير القارئ
+    invented = [w for w in ("العدسة نفسها", "لا خلية", "غير متقاطع", "تعذّر")
+                if w in body]
+    check("7 صفر شرحٍ مؤلَّف للخلوّ في المتن", not invented, str(invented))
+
+# -- 8) بصمة الانحدار ------------------------------------------------------
 def fingerprint():
     parts = []
     for name in sorted(CASES["team"]):
@@ -207,6 +237,7 @@ if __name__ == "__main__":
     test_contract()
     test_dry_run()
     test_deferral_guard()
+    test_declared_void()
     print("-" * 76)
     print("   بصمة انحدار الفريق: " + fingerprint())
     print("-" * 76)
