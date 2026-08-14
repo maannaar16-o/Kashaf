@@ -680,6 +680,10 @@ function buildReportK4(sp, pack) {
   const head = (key) => { n += 1; L.push(`## ${AR_NUM[n - 1]} · ${pack.heading[key]}`); L.push(""); };
   const NAME = K4.USER_NAME;
 
+  // ⓪ وسم الاشتقاق للقارئ — `DEC-283`: **مرّةً واحدة في الصدر**، وقبل
+  // إخطار الفجوة لأنه يصف التقرير كلّه ولا يحمل قراءةً يسبقها `ر-5`.
+  L.push("> " + pack.notice.derivation, "");
+
   // ⓪ إخطار الفجوة — ر-5
   if (a.gap_report) L.push("> ⚠️ " + pack.notice.gap, "");
 

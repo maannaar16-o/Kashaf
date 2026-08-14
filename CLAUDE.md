@@ -36,8 +36,8 @@ The individual tools (run one directly to test one surface):
 python3 parity_py.py            # fingerprint 2711c24d8155819b — 125 logic cases
 python3 parity_reports.py       # fingerprint 36ae94bfd5a8b60f — 142 reports
 python3 parity_supervisor.py    # fingerprint 6b324f996856eac3 — 429 supervisor grades
-python3 parity_k4.py            # fingerprint e32207bbb8853560 — 387 K4 cases (logic + report + its audit block + crossing surface)
-python3 parity_supervisor_k4.py # fingerprint a0f83d78b8adbf53 — 982 supervisor grades on K4
+python3 parity_k4.py            # fingerprint 7cdb1561ceb38a17 — 387 K4 cases (logic + report + its audit block + crossing surface)
+python3 parity_supervisor_k4.py # fingerprint e0aef05e46dce973 — 982 supervisor grades on K4
 python3 parity_messages.py      # exception-message parity, 15 paths
 python3 parity_isolation.py     # isolation-audit parity, 826 texts
 python3 parity_surface.py       # systematic surface sweep, 3214 fields
