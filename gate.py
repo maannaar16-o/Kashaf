@@ -155,7 +155,7 @@ def check_docs():
 
 
 # ── ④ لا مولَّد في قاعدة المعرفة — `CHG-054` ─────────────────────────────
-GENERATED = ["packs.js", "k3_contentpack.py", "Supervisor.html"]
+GENERATED = ["packs.js", "k3_contentpack.py", "Supervisor.html", "Workshop.html"]
 
 
 def check_generated():
