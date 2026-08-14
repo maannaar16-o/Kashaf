@@ -83,8 +83,11 @@ def test_zero_authoring():
     for k, txt in pack.raw["heading"].items():
         if txt not in contract:
             missing.append(f"heading:{k}")
+    # الوسم للقارئ (`DEC-283`) مختومٌ في وثيقته لا في العقد — فالمصدر
+    # أحدهما، والنقل مقيسٌ في الحالين (`146 §4`: يُختم ثم يُنقل حرفياً).
+    notice_doc = docs.get("_notice", "")
     for k, txt in pack.raw["notice"].items():
-        if txt not in contract:
+        if txt not in contract and txt not in notice_doc:
             missing.append(f"notice:{k}")
 
     check("صفر تأليف — كل نص بمصدره المختوم", not missing,

@@ -19,7 +19,9 @@ permissions:
 
 jobs:
   gate:
-    name: 22 أداة · 5 بصمات
+    # لا عددَ في الاسم: العدد **سلطتُه `gate.py`** (`DEC-273`)، ونسخةٌ
+    # ثانيةٌ له هنا تنجرف صامتةً — وقد انجرفت فعلاً (22 بينما البوابة 25).
+    name: البوابة الكاملة — python3 gate.py
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

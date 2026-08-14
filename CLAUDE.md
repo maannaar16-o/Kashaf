@@ -21,12 +21,12 @@ Both outputs — plus `Supervisor.html` (built by `build_supervisor_html.py`) �
 
 ## Verification suite — the acceptance gate
 
-All 22 tools must pass, and the five parity fingerprints must match **verbatim**. Any deviation ⇒ stop and report; do not commit.
+All 25 tools must pass, and the six frozen fingerprints must match **verbatim** — five are *parity* fingerprints (Python ⇄ JS) and the sixth is a *regression* fingerprint (`test_report_team.py`; the team layer is Python-only, see below). Any deviation ⇒ stop and report; do not commit.
 
 **Run the whole gate with one command — `gate.py` is the single authority** (`DEC-273`): it holds the tool list and the five expected fingerprints, matches them literally, and additionally refuses a tool that exists on disk but is not listed, a fingerprint or tool list in `CLAUDE.md`/`00-HANDOVER` that has drifted from it, and any generated artifact that has become git-tracked. CI (`.github/workflows/gate.yml`) runs exactly this on every push and PR — so never maintain a second copy of the list anywhere.
 
 ```bash
-python3 gate.py                 # setup + 22 tools + 5 fingerprints + 4 gate self-checks
+python3 gate.py                 # setup + 25 tools + 6 fingerprints + 6 gate self-checks
 python3 gate.py --list          # the list and its fingerprints, without running
 ```
 
@@ -36,8 +36,8 @@ The individual tools (run one directly to test one surface):
 python3 parity_py.py            # fingerprint 2711c24d8155819b — 125 logic cases
 python3 parity_reports.py       # fingerprint 36ae94bfd5a8b60f — 142 reports
 python3 parity_supervisor.py    # fingerprint 6b324f996856eac3 — 429 supervisor grades
-python3 parity_k4.py            # fingerprint e32207bbb8853560 — 387 K4 cases (logic + report + its audit block + crossing surface)
-python3 parity_supervisor_k4.py # fingerprint a0f83d78b8adbf53 — 982 supervisor grades on K4
+python3 parity_k4.py            # fingerprint 7cdb1561ceb38a17 — 387 K4 cases (logic + report + its audit block + crossing surface)
+python3 parity_supervisor_k4.py # fingerprint e0aef05e46dce973 — 982 supervisor grades on K4
 python3 parity_messages.py      # exception-message parity, 15 paths
 python3 parity_isolation.py     # isolation-audit parity, 826 texts
 python3 parity_surface.py       # systematic surface sweep, 3214 fields
@@ -48,6 +48,9 @@ python3 test_report_k2.py       ;  python3 test_report_k3.py
 python3 test_guard_sp.py        ;  python3 test_guard_lock.py
 python3 guard_interp.py
 python3 test_report_k4.py       ;  python3 k4_content.py
+python3 test_report_team.py     # fingerprint 21532a8aba568a2d — team-composition contract
+python3 test_workshop.py        # workshop-path contract — supervisor-as-admission-gate
+python3 test_owner_console.py   # owner-console contract — conditional ح-4 lift, isolation, declared voids
 python3 test_site_build.py      # site/app build guard — also verifies docs/ is not stale
 python3 test_supervisor_build.py # supervisor-tool build guard — *executes* the generated bundle
 python3 supervisor.py --self-test

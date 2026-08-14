@@ -42,8 +42,8 @@ TOOLS = [
     ("parity_py.py",              "2711c24d8155819b"),
     ("parity_reports.py",         "36ae94bfd5a8b60f"),
     ("parity_supervisor.py",      "6b324f996856eac3"),
-    ("parity_k4.py",              "e32207bbb8853560"),
-    ("parity_supervisor_k4.py",   "a0f83d78b8adbf53"),
+    ("parity_k4.py",              "7cdb1561ceb38a17"),
+    ("parity_supervisor_k4.py",   "e0aef05e46dce973"),
     ("parity_messages.py",        None),
     ("parity_isolation.py",       None),
     ("parity_surface.py",         None),
@@ -57,12 +57,15 @@ TOOLS = [
     ("test_guard_lock.py",        None),
     ("guard_interp.py",           None),
     ("test_report_k4.py",         None),
+    ("test_report_team.py",       "21532a8aba568a2d"),
+    ("test_workshop.py",          None),
+    ("test_owner_console.py",     None),
     ("k4_content.py",             None),
     ("test_site_build.py",        None),
     ("test_supervisor_build.py",  None),
     ("supervisor.py --self-test", None),
 ]
-EXPECTED_COUNT = 22
+EXPECTED_COUNT = 25
 
 # الوثائق التي تصف البوابة — **تُقابَل بها ولا تُصدَّق**
 DOCS = ["CLAUDE.md", "00-HANDOVER_2026-08-05_Resume_Directive.md"]
@@ -153,7 +156,7 @@ def check_docs():
 
 
 # ── ④ لا مولَّد في قاعدة المعرفة — `CHG-054` ─────────────────────────────
-GENERATED = ["packs.js", "k3_contentpack.py", "Supervisor.html"]
+GENERATED = ["packs.js", "k3_contentpack.py", "Supervisor.html", "Workshop.html"]
 
 
 def check_generated():
@@ -241,6 +244,36 @@ def check_numbering():
          f"متصادم: {clash}" if clash else f"{len(codes)} كوداً فريداً")
 
 
+# ── ⑥ مزامنة الديون المُعلنة — `DEC-276` ─────────────────────────────────
+SETTLEMENT_DOC = "146-SETTLEMENT_DEC-276.md"
+
+
+def check_debts():
+    """`DEC-245`/`DEC-267` صرّحا بحدٍّ: مزامنة `open_debts` بين الكود وسجلّ
+    الحوكمة **يدوية** — «لا رابط آلي بين قائمةٍ في الكود وسجلٍّ في وثيقة».
+    وهو آخر ما بقي من صنفٍ أُغلقت تجلّياته في `DEC-273`. فالقائمة تُعلَن
+    **صريحة** في وثيقة التسوية (`ن-8`: لا تُستنتج من نثر)، وتُقابَل بالمحرّك."""
+    doc = os.path.join(HERE, SETTLEMENT_DOC)
+    if not os.path.exists(doc):
+        mark(False, "وثيقة التسوية موجودة", SETTLEMENT_DOC + " غائبة")
+        return
+    m = re.search(r"^K4_OPEN_DEBTS\s*=\s*(.+)$",
+                  io.open(doc, encoding="utf-8").read(), re.M)
+    if not m:
+        mark(False, "قائمة الديون مُعلنة في الوثيقة", "سطر `K4_OPEN_DEBTS` غير موجود")
+        return
+    declared = sorted(x.strip() for x in m.group(1).split("·") if x.strip())
+    try:
+        import k4_engine as _E4
+        live = sorted(_E4.run({v: 60.0 for v in _E4.VALVES}).audit["open_debts"])
+    except Exception as e:                      # noqa: BLE001 — يُصاغ لا يُبتلع
+        mark(False, "قائمة الديون تُقرأ من المحرّك", f"{type(e).__name__}: {e}")
+        return
+    mark(declared == live, "الديون المُعلنة = ديون المحرّك",
+         f"الوثيقة {declared} · المحرّك {live}" if declared != live
+         else f"{len(live)} دَيناً متطابقاً")
+
+
 def setup():
     print("── التهيئة " + "─" * 66)
     for cmd, why in SETUP:
@@ -269,6 +302,7 @@ def main(argv):
     check_docs()
     check_generated()
     check_numbering()
+    check_debts()
     print("═" * 78)
     if FAILS:
         print(f"النتيجة: ❌ انحدار — {len(FAILS)}")
