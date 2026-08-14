@@ -17,16 +17,16 @@ python3 build_packs.py                              # generates packs.js — REQ
 cp k3_contentpack_FIXED_DEC-195.py k3_contentpack.py  # legal rename
 ```
 
-Without the first step, `parity_reports` and `test_packs` fail with `Cannot find module './packs.js'`. Both outputs — plus `Supervisor.html` (built by `build_supervisor_html.py`) — are gitignored and must **never be committed** (`CHG-054`, machine-checked by `gate.py`). `gate.py` performs both setup steps itself. Also intentionally absent from the repo: `Kashaf.html` (the sealed questionnaire instrument, lives in conversation) and `golden_k3_PRE-DEC-215.json`. Do not add them. Everything else already carries its legal name — do not rename `k2_engine` / `k3_engine` / `k2_report` / `k3_report` / `k3_content`.
+Without the first step, `parity_reports` and `test_packs` fail with `Cannot find module './packs.js'`. Both outputs — plus `Supervisor.html` (built by `build_supervisor_html.py`), `Workshop.html` (built by `build_workshop_html.py`, `DEC-279`) and the whole `workshop_data/` directory (participant data, `DEC-277`) — are gitignored and must **never be committed** (`CHG-054`, machine-checked by `gate.py`). `gate.py` performs both setup steps itself. Also intentionally absent from the repo: `Kashaf.html` (the sealed questionnaire instrument, lives in conversation) and `golden_k3_PRE-DEC-215.json`. Do not add them. Everything else already carries its legal name — do not rename `k2_engine` / `k3_engine` / `k2_report` / `k3_report` / `k3_content`.
 
 ## Verification suite — the acceptance gate
 
-All 22 tools must pass, and the five parity fingerprints must match **verbatim**. Any deviation ⇒ stop and report; do not commit. A fingerprint may only move by a prior, justified declaration inside a sealed decision — **a silent shift is a rejected outcome**, not a new baseline.
+All 24 tools must pass, and the six frozen fingerprints must match **verbatim** — five are *parity* fingerprints (Python ⇄ JS) and the sixth is a *regression* fingerprint (`test_report_team.py`; the team layer is Python-only, see Architecture). Any deviation ⇒ stop and report; do not commit. A fingerprint may only move by a prior, justified declaration inside a sealed decision — **a silent shift is a rejected outcome**, not a new baseline.
 
-**Run the whole gate with one command — `gate.py` is the single authority** (`DEC-273`): it holds the tool list and the five expected fingerprints and matches them literally. CI (`.github/workflows/gate.yml`) runs exactly this on every push and PR — so never maintain a second copy of the list anywhere.
+**Run the whole gate with one command — `gate.py` is the single authority** (`DEC-273`): it holds the tool list and the six expected fingerprints and matches them literally. CI (`.github/workflows/gate.yml`) runs exactly this on every push and PR — so never maintain a second copy of the list anywhere.
 
 ```bash
-python3 gate.py                 # setup + 22 tools + 5 fingerprints + the self-checks below
+python3 gate.py                 # setup + 24 tools + 6 fingerprints + the six self-checks below
 python3 gate.py --list          # the list and its fingerprints, without running
 ```
 
@@ -61,6 +61,8 @@ python3 test_report_k2.py       ;  python3 test_report_k3.py
 python3 test_guard_sp.py        ;  python3 test_guard_lock.py
 python3 guard_interp.py
 python3 test_report_k4.py       ;  python3 k4_content.py
+python3 test_report_team.py     # fingerprint 859f0a3241b5ad60 — team-composition contract
+python3 test_workshop.py        # workshop-path contract — supervisor-as-admission-gate
 python3 test_site_build.py      # site/app build guard — also verifies docs/ is not stale
 python3 test_supervisor_build.py # supervisor-tool build guard — *executes* the generated bundle
 python3 supervisor.py --self-test
@@ -72,7 +74,7 @@ The measured scope is **eight surfaces**: engine logic · report text · supervi
 
 ## Architecture
 
-**Dual implementation with measured parity.** Every engine/report/supervisor behavior exists twice — Python (`k2_engine.py`, `k3_engine.py`, `k4_engine.py`, `k2_report.py`, `k3_report.py`, `k4_report.py`, `supervisor.py`) and JS (`engines.js`, `reports.js`, `supervisor_core.js`) — because the JS side is embedded in browser tools. The governing rule (`DEC-199`/`DEC-200`): every textual or logic change is made **in both versions**, then parity is measured; a single divergence freezes both sides — neither is preferred. Output surfaces are compared literally (including number formatting: explicit `_round2`/`.toFixed(1)`-style rendering, never language-default serialization — `ن-8`).
+**Dual implementation with measured parity.** Every engine/report/supervisor behavior exists twice — Python (`k2_engine.py`, `k3_engine.py`, `k4_engine.py`, `k2_report.py`, `k3_report.py`, `k4_report.py`, `supervisor.py`) and JS (`engines.js`, `reports.js`, `supervisor_core.js`) — because the JS side is embedded in browser tools. The governing rule (`DEC-199`/`DEC-200`): every textual or logic change is made **in both versions**, then parity is measured; a single divergence freezes both sides — neither is preferred. Output surfaces are compared literally (including number formatting: explicit `_round2`/`.toFixed(1)`-style rendering, never language-default serialization — `ن-8`). The team layer is the **declared exception**: it is Python-only (precedent `DEC-254`), so its anchor is a regression fingerprint, not a parity one.
 
 **Three circles.** K2 = eight thinking dimensions (A/C/E/H/O/R/S/St). K3 = five emotional-regulation skills (EP/IR/BI/CF/ST). K4 (دائرة الإنجاز — seven executive valves WM/TI/F/PF/OR/TM/PER) was built across phases 0–8 (`DEC-257…266`) and has its own twin engine, report builder (`buildReportK4` in `reports.js`), content pack (`k4_contentpack.json`, zero-authoring — every string is verified to exist literally in its sealed source doc) and parity tool. `DEC-186` was lifted for K4 only (`DEC-266`); K4 is surfaced in the tool as a third report tab with its own crossing-reading surface (`DEC-270`); K1 remains an internal panel. The three circles partition the instrument exactly: 56 + 55 + 77 = 188 = 94×2 slots, verified in `build_site.validate_maps`.
 
@@ -86,9 +88,13 @@ The measured scope is **eight surfaces**: engine logic · report text · supervi
 
 **Site and app.** `build_site.py` assembles the public site and the browser instrument from `site/` (`templates/`, `content/`, `static/`, `vendor/`, `app/`, `checks/`, `contrib-receiver/`) plus the sealed docs, and writes the eight tracked pages in `docs/` — including `docs/kashaf.html`, a *generated* embodiment of the questionnaire with three report tabs (`DEC-250`…`DEC-270`). It does not replace or copy the sealed instrument: its measurement layer is read, not defined. `test_site_build.py` runs the build's own JS checks and fails if `docs/` is stale relative to the sources — regenerate and commit `docs/` whenever anything upstream of it changes.
 
+**Team composition (`DEC-277`/`DEC-278`).** `team_engine.py` + `team_report.py` + `team_contentpack.json` (embedded by `build_team_pack.py`) operationalize the sealed `56-TEAM-00` charter — Python-only, hence the regression fingerprint. The engine **defines no threshold and computes no score**: thresholds are read from `k2_engine.comp_state` (one authority), and its input is *approved individual reports* under an input contract — a violation raises `InputContractError` and stops, never a silent fix. It knows the eight K2 lenses only and rejects any field from another circle. The report is nine sections of sealed cells under sealed headings with **zero authored connective text**, enforcing five locks: no differential comparison or ranking of members, no raw `SP` in the body, zero generation, the `G4` display lock printed in §9, and zero K1/K3/K4 contact.
+
+**Workshop path (`DEC-277`/`DEC-279`).** A separate, code-gated path for coach-run sessions. The rule it establishes: **a published promise is not revoked to add a path — the path is added declaring its own terms.** The public site keeps its promise verbatim ("your answers never leave your device"); the workshop surface announces the opposite up front, and there is **no retroactive migration** of anyone who answered under the old promise. `ح-4` (no `SP%` reaches a reader) is lifted **only on the owner's workshop surface**, on the `DEC-186`-for-K4 precedent — a lift bounded to its scope, resting on the pre-existing "explicit prior permission" clause, not an invented exception. `Workshop.html` (built by `build_workshop_html.py`) **narrows** the network lock rather than lifting it: every connection forbidden except one same-origin `POST /submit`. `workshop_server.py` is stdlib-only with exactly two routes (everything else 404, no path derived from the request) and binds `127.0.0.1` unless the owner passes an explicit flag. `workshop_store.py` makes the supervisor an **admission gate, not a later check** — a payload is graded before storage and a report that fails the audit is returned with its grade, never silently stored. **Zero credentials are stored** (no password, no hash): the owner issues the code, and the code↔name mapping lives outside the store, so the store holds a code and a report — never a name.
+
 **Field-data channel (owner-operated).** `contrib_pull.py` drains the contribution store and validates each record against `RAWAHIL-CONTRIB-v1` literally (bad records are quarantined and reported, never silently fixed or dropped); `contrib_analyze.py` produces the four-axis preliminary reading — it **describes and ranks, never judges**: no invented threshold (`ن-7/④`), no validity claim (`DEC-246`). Credentials come from the owner's environment variables and are never committed; all four outputs are gitignored (field data is not a knowledge document). These tools are outside the gate's tool list by design.
 
-**Golden/regression anchors.** `golden_k2.json`, `golden_k3.json`, `parity_cases.json`, `parity_cases_k4.json` are frozen references; `interp_registry.json` registers every approved interpolation (`ح-6`); `k2_lock_registry.json` governs lock phrasing (`ح-7`). Active guards: `ح-1`…`ح-3` (packs), `ح-4` (`SP%`), `ح-5` (unregistered percentage), `ح-6`, `ح-7`, `ص-1…ص-3` (K3), `ت-6` (no threshold).
+**Golden/regression anchors.** `golden_k2.json`, `golden_k3.json`, `parity_cases.json`, `parity_cases_k4.json`, `team_cases.json` are frozen references; `interp_registry.json` registers every approved interpolation (`ح-6`); `k2_lock_registry.json` governs lock phrasing (`ح-7`). Active guards: `ح-1`…`ح-3` (packs), `ح-4` (`SP%`), `ح-5` (unregistered percentage), `ح-6`, `ح-7`, `ص-1…ص-3` (K3), `ت-6` (no threshold).
 
 ## Reading the knowledge base
 
@@ -106,7 +112,7 @@ Filename prefixes are the map — the flat layout is indexed, not sorted:
 | `51`/`52-MATRIX-*` | dyadic, polar, fallback, blindspot, lookalike and retrieval registries |
 | `55-USER-*` | user-layer prose per dimension |
 | `57`–`99` | K3 build chain, parity/port records, gap and defect dossiers |
-| `100`–`146` | numbered analysis docs, one per decision or decision cluster |
+| `100`–`149` | numbered analysis docs, one per decision or decision cluster |
 
 `00-INDEX_Master_Knowledge_Base_Index.md` lists them all; `00-CROSSMAP_K1_Code_Equivalence_Table.md` maps K1 concepts to code.
 
