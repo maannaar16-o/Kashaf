@@ -8,3 +8,6 @@ contrib_batch.json
 contrib_anomalies.json
 contrib_report.md
 contrib_report.json
+
+# DEC-277: حصيلة الورشة بيانات أشخاص — لا تدخل قاعدة المعرفة بحال
+workshop_data/
