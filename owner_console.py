@@ -245,11 +245,10 @@ def main(argv):
         return 1
     except BrokenPipeError:
         # `| head` يغلق الأنبوب — وأداةُ مشغّلٍ تُنبَّب بطبعها، فلا تُخرج
-        # أثراً كأنها انهارت. ويُغلق `stdout` قبل الخروج فلا يُطبع تحذير.
-        try:
-            sys.stdout.close()
-        finally:
-            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        # أثراً كأنها انهارت. **والترتيب هو الصواب**: يُحوَّل الواصف إلى
+        # `devnull` **قبل** أي إغلاق — فإغلاقُ `stdout` ثم طلبُ `fileno()`
+        # منه يرفع `ValueError` فيصير الحارسُ نفسه سببَ الأثر.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
         return 0
 
 
