@@ -293,18 +293,25 @@
     s.appendChild(box);
     if (err) s.appendChild(Object.assign(el("blockquote", "warnbox"), { textContent: err }));
 
+    // **طريقُ التسليم مُعلَنٌ في البناء لا مُخمَّن**: النسخة المنشورة
+    // لا خادمَ لها، فلا يُعرَض زرُّ إرسالٍ يسقط دائماً (`DEC-285`).
+    var fileOnly = W.DELIVERY === "file";
     var acts = el("div", "actions");
-    var go = el("button", "btn big", "أرسل إلى مدرّب الورشة");
-    go.onclick = function () { doSend(go); };
-    acts.appendChild(go);
-    var dl = el("button", "btn big ghost", "نزّل نتيجتك لتسلّمها بنفسك");
+    if (!fileOnly) {
+      var go = el("button", "btn big", "أرسل إلى مدرّب الورشة");
+      go.onclick = function () { doSend(go); };
+      acts.appendChild(go);
+    }
+    var dl = el("button", "btn big" + (fileOnly ? "" : " ghost"),
+                "نزّل نتيجتك لتسلّمها بنفسك");
     dl.onclick = function () { doDownload(dl); };
     acts.appendChild(dl);
     s.appendChild(acts);
 
-    s.appendChild(el("p", "faintline",
-      "الإرسال يحتاج خادم الورشة. والتنزيل يعمل بلا شبكة: تحفظ ملفاً " +
-      "وتسلّمه لمدرّبك بأي وسيلة."));
+    s.appendChild(el("p", "faintline", fileOnly
+      ? "هذه النسخة تعمل بلا شبكة البتّة: تحفظ ملفاً وتسلّمه لمدرّبك بأي وسيلة."
+      : "الإرسال يحتاج خادم الورشة. والتنزيل يعمل بلا شبكة: تحفظ ملفاً " +
+        "وتسلّمه لمدرّبك بأي وسيلة."));
   }
 
   function doSend(btn) {

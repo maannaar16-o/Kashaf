@@ -663,6 +663,26 @@ def visible_text(html):
     return re.sub(r"<[^>]+>", " ", html)
 
 
+
+def workshop_page_contract(html):
+    """`DEC-285` — النسخة المنشورة: قفلٌ كامل · تسليمٌ بالملف · صفر إغراء.
+
+    **ولا رابط إليها من أي صفحة عامة**: من يبلغها يبلغها برابطٍ يعطيه
+    المدرّب — فلا يقع زائرٌ عليها وهو يقرأ وعدَ «لا تغادر جهازك».
+    """
+    if 'dir="rtl"' not in html or 'lang="ar"' not in html:
+        die("workshop.html: بلا dir=rtl أو lang=ar")
+    if "CPL-08A-03" not in html or "CPL-WS-01" in html:
+        die("workshop.html: القفل ليس الكامل")
+    if '"DELIVERY": "file"' not in html:
+        die("workshop.html: طريق التسليم غير مُعلَن")
+    if 'type="password"' in html:
+        die("workshop.html: حقل اعتماد")
+    if "noindex" not in html:
+        die("workshop.html: بلا منع فهرسة")
+    for m in re.finditer(r'(?:src|href)="(https?://[^"]+)"', html):
+        die(f"workshop.html: مورد خارجي: {m.group(1)}")
+
 def lint(name, html):
     if 'dir="rtl"' not in html or 'lang="ar"' not in html:
         die(f"{name}: بلا dir=rtl أو lang=ar")
@@ -713,8 +733,19 @@ def main():
     pages = build_static_pages(tabs, bodies)
     pages["kashaf.html"] = kashaf
 
-    check_anchors(pages)
+    # صفحة الورشة المنشورة (`DEC-285`) — **من بانيها الواحد** لا من نسخةٍ
+    # هنا (`م-2`). ووضعُها `offline`: قفلٌ كامل بلا منفذ إرسال، فلا
+    # استثناءَ شبكةٍ يُحمَل إلى أصلٍ عام.
+    import build_workshop_html as BW          # noqa: E402 — بانٍ لا وحدة
+    pages["workshop.html"] = BW.build(mode="offline")
+
+    check_anchors({k: v for k, v in pages.items() if k != "workshop.html"})
     for name, html in pages.items():
+        # صفحة الورشة سطحُ تطبيقٍ لا صفحةَ نثر: نصُّها المرئي مولَّدٌ في
+        # المتصفح، فيُفحص عقدُها هنا **بأسمائه** لا بلينت النثر.
+        if name == "workshop.html":
+            workshop_page_contract(html)
+            continue
         lint(name, html)
         # طبقة التطبيق (DEC-251): كل صفحة تحمل بيان التطبيق وتسجيل عامل الخدمة
         if 'rel="manifest"' not in html:
@@ -755,6 +786,13 @@ def main():
         die("contribute.html: مخطط الإسهام غائب")
     if "CPL-08A-03" not in pages["kashaf.html"]:
         die("kashaf.html: قفل صفر-الشبكة غائب — لا يُنشر بدونه")
+    # **صفر رابطٍ إلى صفحة الورشة من أي صفحة عامة** (`DEC-285`): الفصل
+    # يُقاس لا يُوعَد — فلا يقع زائرٌ عليها وهو يقرأ الوعد المنشور.
+    for name, html in pages.items():
+        if name == "workshop.html":
+            continue
+        if "workshop.html" in html:
+            die(f"{name}: رابطٌ إلى صفحة الورشة — الفصل منقوض")
     if "window.KASHAF_CONTRIB_ENDPOINT" not in pages["contribute.html"]:
         die("contribute.html: إعداد قناة الاستقبال غائب")
 
@@ -786,7 +824,10 @@ def main():
     assets = ["./"]
     for root_dir, _dirs, files in os.walk(DOCS):
         for fn in sorted(files):
-            if fn in ("sw.js", ".nojekyll"):
+            # **استثناءٌ معلَن**: صفحة الورشة خارج مخزن التطبيق العام
+            # (`DEC-285`) — لا تُثبَّت معه ولا تُخزَّن في ذاكرته، فالفصل
+            # بين السطحين يبقى في التخزين كما هو في الروابط.
+            if fn in ("sw.js", ".nojekyll", "workshop.html"):
                 continue
             rel = os.path.relpath(os.path.join(root_dir, fn), DOCS).replace(os.sep, "/")
             assets.append("./" + rel)
@@ -802,6 +843,8 @@ def main():
     for a in assets:
         if a not in listed:
             die(f"sw.js: ملف ناقص من قائمة التخزين: {a}")
+    if "./workshop.html" in listed:
+        die("sw.js: صفحة الورشة في مخزن التطبيق العام — الفصل منقوض")
     if site_ver not in sw:
         die("sw.js: بصمة الموقع غائبة")
 
