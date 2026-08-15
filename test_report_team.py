@@ -165,19 +165,44 @@ def test_dry_run():
           str([d["lenses"] for d in doc]))
 
 
-# -- 6) حرس التأجيل: لا سطح متصفح بلا توأم --------------------------------
-def test_deferral_guard():
-    surfaces = ["engines.js", "reports.js", "dualreport.js",
-                os.path.join("site", "app", "app.js")]
-    leaked = []
-    for f in surfaces:
-        p = os.path.join(HERE, f)
-        if os.path.exists(p) and re.search(
-                r"buildReportTeam|TeamEngine|RawahilTeam", _src(f)):
-            leaked.append(f)
-    check("6 طبقة الفريق خارج حزمة المتصفح", not leaked,
-          "ظهرت في " + str(leaked) + " بلا توأم" if leaked
-          else "بايثون وحدها (سابقة DEC-254) - والحرس يُقلب عند بناء السطح")
+# -- 6) الحرس **بعد قلبه**: التوأم قائمٌ ومقيسٌ بتكافؤ ---------------------
+def test_twin_guard():
+    """`DEC-278 §5` نصّ على **قاعدة القلب**: حين يُبنى السطح **يُقلب الحرس
+    لا يُحذف** — من «لا سطح بلا توأم» إلى «التوأم مقيسٌ بتكافؤ» (`DEC-289`).
+
+    فما كان يمنع ظهور الطبقة في المتصفح صار **يوجب توأمها وقياسه**.
+    """
+    twin = os.path.join(HERE, "team_core.js")
+    check("6 التوأم قائم", os.path.exists(twin), "team_core.js")
+    if os.path.exists(twin):
+        src = _src("team_core.js")
+        for fn in ("buildReport", "pairMatrix", "collectiveBlind", "rebound",
+                   "interPolarity", "recommendation"):
+            if fn not in src:
+                check("6 التوأم كامل: " + fn, False, "غائبة")
+                break
+        else:
+            check("6 التوأم كامل — ستّ دوالّ حاكمة", True, "")
+
+    # **والقياس شرطٌ لا وعد**: أداة التكافؤ قائمة ومدرَجة في البوابة
+    check("6 أداة التكافؤ قائمة",
+          os.path.exists(os.path.join(HERE, "parity_team.py"))
+          and os.path.exists(os.path.join(HERE, "_team_node.js")), "")
+    gate = _src("gate.py")
+    check("6 التكافؤ مدرَجٌ في البوابة ببصمته",
+          '"parity_team.py"' in gate, "")
+
+    # **والسطح العام يبقى بلا طبقة فريق**: القلب رفع الحظر عن سطح المالك
+    # وحده — لا عن التطبيق المنشور (`DEC-277 §1` · `DEC-285`).
+    public = ["engines.js", "reports.js", "dualreport.js",
+              os.path.join("site", "app", "app.js"),
+              os.path.join("site", "workshop", "workshop_app.js")]
+    leaked = [f for f in public
+              if os.path.exists(os.path.join(HERE, f))
+              and re.search(r"buildReportTeam|TeamEngine|RawahilTeam", _src(f))]
+    check("6 طبقة الفريق خارج كل سطحٍ عام", not leaked,
+          "ظهرت في " + str(leaked) if leaked
+          else "سطح المالك وحده (Team.html) — والعام كما هو")
 
 
 # -- 7) الخلوّ المُعلَن: قاعدةٌ دائمة بختم المالك (`DEC-281`) --------------
@@ -279,7 +304,7 @@ if __name__ == "__main__":
     test_isolation()
     test_contract()
     test_dry_run()
-    test_deferral_guard()
+    test_twin_guard()
     test_declared_void()
     test_sealed_readings()
     print("-" * 76)

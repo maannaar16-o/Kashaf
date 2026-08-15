@@ -62,7 +62,7 @@ Mode 03-Build (استئناف)
 | **`6b324f996856eac3`** | `parity_supervisor` | 429 درجة حكم |
 | **`94434230e7dbc0f0`** | `parity_k4` | 387 حالة (منطق + تقرير **وكتلة تدقيقه** + سطح عابر) |
 | **`72790080dc0df8d2`** | `parity_supervisor_k4` | 80 حمولة · 982 درجة حكم |
-| **`21532a8aba568a2d`** | `test_report_team` | **بصمة انحدار** لا تكافؤ — طبقة الفريق بايثون وحدها (سابقة `DEC-254`) |
+| **`29ed15b4accf7a5a`** | `test_report_team` | **بصمة انحدار** لا تكافؤ — طبقة الفريق بايثون وحدها (سابقة `DEC-254`) |
 
 > **قاعدة الزحزحة المُعلنة:** بصمةٌ لا تُزاح إلا بإعلانٍ مسبَّب في قرار — كما زُيحت بصمة $K_4$ عند مزامنة `open_debts` (`DEC-267`) ثم عند بناء السطحين (`DEC-268`). **والزحزحة الصامتة مرفوضة.**
 
@@ -112,7 +112,7 @@ cp k3_contentpack_FIXED_DEC-195.py  k3_contentpack.py
 **بأمرٍ واحد** — و`gate.py` هو **السلطة الواحدة** على القائمة والبصمات (`DEC-273`)؛ وهذه القائمة أدناه **مقابَلةٌ به آلياً**، فانجرافُها عنه **يوقف البوابة**:
 
 ```bash
-python3 gate.py                 # التهيئة + 25 أداة + 6 بصمات + 6 فحوصٍ على البوابة
+python3 gate.py                 # التهيئة + 27 أداة + 6 بصمات + 6 فحوصٍ على البوابة
 ```
 
 والأدوات منفردةً — لفحص سطحٍ واحد:
@@ -122,6 +122,7 @@ python3 parity_py.py            # 2711c24d8155819b — 125 حالة منطق
 python3 parity_reports.py       # 36ae94bfd5a8b60f — 142 تقريراً
 python3 parity_supervisor.py    # 6b324f996856eac3 — 429 درجة حكم
 python3 parity_k4.py            # 94434230e7dbc0f0 — 387 حالة K4
+python3 parity_team.py          # 618bc83fd757bd60 — طبقة الفريق توأمين
 python3 parity_supervisor_k4.py # 72790080dc0df8d2 — 982 درجة حكم على K4
 python3 parity_messages.py      # 15 مساراً
 python3 parity_isolation.py     # 826 نصّاً
@@ -133,11 +134,12 @@ python3 test_report_k2.py       ;  python3 test_report_k3.py
 python3 test_guard_sp.py        ;  python3 test_guard_lock.py
 python3 guard_interp.py
 python3 test_report_k4.py       ;  python3 k4_content.py
-python3 test_report_team.py     # 21532a8aba568a2d — عقد تركيب الفريق (بصمة انحدار)
+python3 test_report_team.py     # 29ed15b4accf7a5a — عقد تركيب الفريق (بصمة انحدار)
 python3 test_workshop.py        # عقد مسار الورشة — المشرف بوابةُ قبول
 python3 test_owner_console.py   # عقد لوحة المالك — رفعٌ مشروط · عزلٌ · حدودٌ مُعلَنة
 python3 test_site_build.py      # حرس بناء الموقع + مزامنة docs/
 python3 test_supervisor_build.py # حرس بناء أداة المشرف + تشغيلها
+python3 test_team_build.py      # حرس بناء سطح الفريق + تشغيل حزمته
 python3 supervisor.py --self-test
 ```
 
@@ -284,4 +286,4 @@ python3 supervisor.py --self-test
 
 ---
 
-**[نهاية `00-HANDOVER_2026-08-05` — **مزامَنة 2026-08-15** · خط الأساس `DEC-288` · الترقيم التالي `DEC-289` · `CHG-108` · **25 أداة** · **ستّ بصمات** · اثنتا عشرة علامة · **والمزامنة مقيسةٌ بتمامها** (`DEC-287`): `gate.py` يقابل قائمة الأدوات والبصمات **وخطَّ الأساس نفسه** — فلا رقمَ يتخلّف صامتاً]**
+**[نهاية `00-HANDOVER_2026-08-05` — **مزامَنة 2026-08-15** · خط الأساس `DEC-289` · الترقيم التالي `DEC-290` · `CHG-109` · **27 أداة** · **سبع بصمات** · اثنتا عشرة علامة · **والمزامنة مقيسةٌ بتمامها** (`DEC-287`): `gate.py` يقابل قائمة الأدوات والبصمات **وخطَّ الأساس نفسه** — فلا رقمَ يتخلّف صامتاً]**
