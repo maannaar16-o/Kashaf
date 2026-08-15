@@ -314,8 +314,11 @@ def run(sp, content=None, strict=False):
                            "GAP-Q-07:41ب≈45أ", "GAP-Q-07:14ب≈27أ"],
         # مُزامَنة مع سجل التسوية (`DEC-267` · `137 §8`): `GAP-K4-CASES-01`
         # دُمجت في `DEBT-K4-FIELD-01` — والمزامنة يدوية مصرَّح بها.
+        # `GAP-X-EXH-01` **أُغلق بحدٍّ دائم** (`DEC-288`): الإنهاك الصامت
+        # خارج تعريفَي الطرفين معاً — لا بينهما — فلا يُصنَّف أبداً. وحدٌّ
+        # مُعلَنٌ ليس دَيناً مفتوحاً، فخرج من القائمة (`م-8`).
         "open_debts": ["DEBT-K4-FIELD-01", "GAP-K4-FR-CORE",
-                       "GAP-X-EXH-01", "GAP-K4-FR-04"],
+                       "GAP-K4-FR-04"],
     }
     return Result(audit=audit, gap_report=bool(out_valves))
 
