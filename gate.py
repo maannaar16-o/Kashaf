@@ -243,6 +243,29 @@ def check_numbering():
     mark(not clash, "صفر كودِ وثيقةٍ مكرَّر",
          f"متصادم: {clash}" if clash else f"{len(codes)} كوداً فريداً")
 
+    # **وخط الأساس في `00-HANDOVER` يُقاس لا يُتذكَّر** (`DEC-287`): الوثيقة
+    # تفاخر بأن مزامنتها مقيسة، وكان المقيس منها قائمةَ الأدوات والبصمات
+    # وحدها — فتخلّف رقمُها ستّة قرارات. **والذي يتكرّر يُقاس** (`CHG-096`
+    # · `DEC-273/③` · `DEC-281 §5`).
+    hv = os.path.join(HERE, "00-HANDOVER_2026-08-05_Resume_Directive.md")
+    if os.path.exists(hv) and nums:
+        th = io.open(hv, encoding="utf-8").read()
+        chgs = sorted(int(c[4:]) for c, r in ROW_CHG.findall(t2)
+                      if not _is_reserved(r))
+        mh = re.search(r"خط الأساس `DEC-(\d+)` · الترقيم التالي `DEC-(\d+)`"
+                       r" · `CHG-(\d+)`", th)
+        if not mh:
+            mark(False, "00-HANDOVER: خط الأساس معلَن بصيغته",
+                 "السطر غير مقروء — تُحفظ صيغته ليبقى مقيساً")
+        else:
+            base, nxt_h, chg_h = (int(g) for g in mh.groups())
+            want = (max(nums), max(nums) + 1, max(chgs) if chgs else 0)
+            got = (base, nxt_h, chg_h)
+            mark(want == got, "00-HANDOVER: خط الأساس مطابقٌ للسجلّ",
+                 f"المُعلَن DEC-{base}/DEC-{nxt_h}/CHG-{chg_h} · "
+                 f"المتوقَّع DEC-{want[0]}/DEC-{want[1]}/CHG-{want[2]}"
+                 if want != got else f"DEC-{base} · CHG-{chg_h}")
+
 
 # ── ⑥ مزامنة الديون المُعلنة — `DEC-276` ─────────────────────────────────
 SETTLEMENT_DOC = "146-SETTLEMENT_DEC-276.md"
