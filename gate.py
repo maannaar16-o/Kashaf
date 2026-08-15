@@ -44,6 +44,7 @@ TOOLS = [
     ("parity_supervisor.py",      "6b324f996856eac3"),
     ("parity_k4.py",              "94434230e7dbc0f0"),
     ("parity_supervisor_k4.py",   "72790080dc0df8d2"),
+    ("parity_team.py",            "618bc83fd757bd60"),
     ("parity_messages.py",        None),
     ("parity_isolation.py",       None),
     ("parity_surface.py",         None),
@@ -57,15 +58,16 @@ TOOLS = [
     ("test_guard_lock.py",        None),
     ("guard_interp.py",           None),
     ("test_report_k4.py",         None),
-    ("test_report_team.py",       "21532a8aba568a2d"),
+    ("test_report_team.py",       "29ed15b4accf7a5a"),
     ("test_workshop.py",          None),
     ("test_owner_console.py",     None),
     ("k4_content.py",             None),
     ("test_site_build.py",        None),
     ("test_supervisor_build.py",  None),
+    ("test_team_build.py",        None),
     ("supervisor.py --self-test", None),
 ]
-EXPECTED_COUNT = 25
+EXPECTED_COUNT = 27
 
 # الوثائق التي تصف البوابة — **تُقابَل بها ولا تُصدَّق**
 DOCS = ["CLAUDE.md", "00-HANDOVER_2026-08-05_Resume_Directive.md"]
@@ -156,7 +158,8 @@ def check_docs():
 
 
 # ── ④ لا مولَّد في قاعدة المعرفة — `CHG-054` ─────────────────────────────
-GENERATED = ["packs.js", "k3_contentpack.py", "Supervisor.html", "Workshop.html"]
+GENERATED = ["packs.js", "k3_contentpack.py", "Supervisor.html",
+             "Workshop.html", "Team.html"]
 
 
 def check_generated():
