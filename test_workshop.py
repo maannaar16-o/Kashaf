@@ -358,6 +358,48 @@ def test_two_delivery_routes():
     check("9 ملفٌّ مُسلَّم يدخل ببوابة المشرف", ok, detail)
 
 
+# -- 10) النسخة المنشورة: قفلٌ كامل · وفصلٌ مقيس (`DEC-285`) ---------------
+def test_published_copy():
+    pub_path = os.path.join(HERE, "docs", "workshop.html")
+    if not os.path.exists(pub_path):
+        check("10 النسخة المنشورة موجودة", False, "docs/workshop.html غائبة")
+        return
+    pub = io.open(pub_path, encoding="utf-8").read()
+
+    # ① القفل **الكامل** لا المضيَّق: الأصل العام لا يحمل استثناءً
+    check("10 القفل الكامل لا المضيَّق",
+          "CPL-08A-03" in pub and "CPL-WS-01" not in pub
+          and "CPL_WORKSHOP_RUNTIME" not in pub,
+          "زمن تشغيل الاستثناء غير مركَّب")
+    # ② تسليمٌ بالملف وحده — ولا زرَّ إرسالٍ يسقط دائماً
+    check("10 التسليم بالملف مُعلَنٌ في البناء",
+          '"DELIVERY": "file"' in pub, "")
+    # ③ الإذن والرمز شرطُ دخولٍ هنا أيضاً
+    check("10 بوابة الإذن والرمز قائمة",
+          WS.CONSENT_TEXT in pub and WS.CODE_RE.pattern in pub, "")
+    check("10 صفر حقل اعتماد", 'type="password"' not in pub, "")
+    check("10 منعُ الفهرسة معلَن", "noindex" in pub, "")
+
+    # ④ **الفصل مقيسٌ لا موعود**: صفر رابطٍ إليها من أي صفحة عامة
+    docs = os.path.join(HERE, "docs")
+    linked = [f for f in sorted(os.listdir(docs))
+              if f.endswith(".html") and f != "workshop.html"
+              and "workshop.html" in io.open(os.path.join(docs, f),
+                                             encoding="utf-8").read()]
+    check("10 صفر رابطٍ إليها من صفحةٍ عامة", not linked, str(linked))
+
+    # ⑤ وخارج مخزن التطبيق العام — الفصل في التخزين كما في الروابط
+    sw = os.path.join(docs, "sw.js")
+    if os.path.exists(sw):
+        check("10 خارج مخزن التطبيق العام",
+              "./workshop.html" not in io.open(sw, encoding="utf-8").read(), "")
+
+    # ⑥ والتطبيق العام لم يتغيّر: وعدُه وقفلُه كما هما
+    kashaf = io.open(os.path.join(docs, "kashaf.html"), encoding="utf-8").read()
+    check("10 التطبيق العام بقفله ووعده",
+          "CPL-08A-03" in kashaf and WS.SCHEMA not in kashaf, "")
+
+
 if __name__ == "__main__":
     print("=" * 76)
     test_happy_path()
@@ -371,6 +413,7 @@ if __name__ == "__main__":
     test_js_payload_accepted()
     test_server_contract()
     test_two_delivery_routes()
+    test_published_copy()
     print("-" * 76)
     if FAILS:
         print("النتيجة النهائية: انحدار - " + str(len(FAILS)) + ": " +

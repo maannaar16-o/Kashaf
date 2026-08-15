@@ -80,7 +80,7 @@ __EXTRACSS__
 <div class="ws-banner">مسار ورشة — نتيجتك تصل مدرّبك. هذا غير الموقع العام حيث لا تغادر إجاباتك جهازك.</div>
 <div id="app"><noscript><p style="padding:30px;text-align:center">تشغيل هذه الصفحة يتطلب JavaScript.</p></noscript></div>
 
-<!-- ══ قفل شبكةٍ مضيَّق — CPL-WS-01 · DEC-279 ══ -->
+<!-- ══ __LOCKNOTE__ ══ -->
 <script>
 __NARROWNET__
 </script>
@@ -111,7 +111,14 @@ __APP__
 """
 
 
-def build():
+def build(mode="server"):
+    """`server`: قفلٌ مضيَّق ومنفذُ إرسال · `offline`: **قفلٌ كامل بلا منفذ**.
+
+    والنسخة المنشورة تأخذ قفل التطبيق العام نفسه (`CPL-08A-03`) **لأنها
+    لا تحتاج شبكةً أصلاً** — فلا استثناءَ يُحمَل إلى أصلٍ عام (`DEC-285`).
+    """
+    if mode not in ("server", "offline"):
+        BS.die(f"وضعٌ غير معروف: {mode}")
     BS.check_vendor()
     r = subprocess.run([sys.executable, os.path.join(HERE, "build_packs.py")],
                        capture_output=True, text=True, cwd=HERE)
@@ -128,11 +135,14 @@ def build():
     # المخطَّط ونصّ الإذن وصيغة الرمز **من `workshop_store` وحده** — فالنصّ
     # الحاكم مصدرُه واحد، ولا نسخة ثانية له في هذه الطبقة (`م-2`).
     wsdata = {"SCHEMA": WS.SCHEMA, "CONSENT_TEXT": WS.CONSENT_TEXT,
-              "CODE_RE_SRC": WS.CODE_RE.pattern}
+              "CODE_RE_SRC": WS.CODE_RE.pattern,
+              "DELIVERY": "file" if mode == "offline" else "both"}
 
     manifest = "\n".join(
         ["مولَّد بـ build_workshop_html.py — لا يُحرَّر يدوياً (DEC-279)",
-         "قفل الشبكة: CPL-WS-01 — POST /submit على الأصل نفسه وحده",
+         ("قفل الشبكة: CPL-08A-03 — كل اتصالٍ ممنوع (نسخةٌ منشورة بلا خادم)"
+          if mode == "offline" else
+          "قفل الشبكة: CPL-WS-01 — POST /submit على الأصل نفسه وحده"),
          "بصمات المصادر:"] +
         [f"  {n}: {BS.sha256(BS.read(n))[:16]}"
          for n in ("40-MEASURE_Questionnaire_v5.md", "41-Raw_Measure_v4_2.md",
@@ -144,11 +154,16 @@ def build():
               f'/* ==== react-dom 18.3.1 ==== */\n'
               f'{BS.read("site", "vendor", "react-dom.production.min.js")}\n')
 
+    locknote = ("قفل صفر شبكة — CPL-08A-03 · DEC-110 (نسخةٌ منشورة بلا خادم)"
+                if mode == "offline" else
+                "قفل شبكةٍ مضيَّق — CPL-WS-01 · DEC-279")
     html = (SHELL
+            .replace("__LOCKNOTE__", locknote)
             .replace("__MANIFEST__", manifest)
             .replace("__APPCSS__", BS.APP_CSS)
             .replace("__EXTRACSS__", EXTRA_CSS)
-            .replace("__NARROWNET__", NARROW_NET)
+            .replace("__NARROWNET__",
+                     BS.ZERO_NET if mode == "offline" else NARROW_NET)
             .replace("__VENDOR__", vendor)
             .replace("__MODULES__", BS.js_modules())
             .replace("__PAYLOAD__", BS.read("site", "workshop", "ws_payload.js"))
@@ -156,7 +171,7 @@ def build():
             .replace("__WSDATA__", json.dumps(wsdata, ensure_ascii=False))
             .replace("__APP__", BS.read("site", "workshop", "workshop_app.js")))
 
-    for token in ("MANIFEST", "APPCSS", "EXTRACSS", "NARROWNET", "VENDOR",
+    for token in ("LOCKNOTE", "MANIFEST", "APPCSS", "EXTRACSS", "NARROWNET", "VENDOR",
                   "MODULES", "PAYLOAD", "DATA", "WSDATA", "APP"):
         if "__" + token + "__" in html:
             BS.die(f"قالبٌ لم يُملأ: {token}")
@@ -164,8 +179,19 @@ def build():
     # توكيداتٌ لا يُكتب الناتج دونها
     if 'type="password"' in html:
         BS.die("حقل اعتماد في صفحة الورشة — خرق DEC-277 §4")
-    if "CPL-WS-01" not in html:
-        BS.die("قفل الشبكة المضيَّق غائب")
+    lock = "CPL-08A-03" if mode == "offline" else "CPL-WS-01"
+    if lock not in html:
+        BS.die(f"قفل الشبكة غائب: {lock}")
+    if mode == "offline":
+        # **الضمانة القفلُ لا غيابُ سلسلة**: كود الإرسال مضمومٌ في الحالين
+        # (سطحٌ واحد لا سطحان — `م-2`)، لكنه **لا يُعرَض** لأن `DELIVERY`
+        # يقول `file`، **ولو بُلِغ لرماه القفل الكامل**. فيُقاس الثلاثة:
+        if "CPL-WS-01" in html:
+            BS.die("النسخة المنشورة تحمل القفل المضيَّق")
+        if '"DELIVERY": "file"' not in html:
+            BS.die("النسخة المنشورة بلا إعلان طريق التسليم")
+        if "CPL_WORKSHOP_RUNTIME" in html:
+            BS.die("زمن تشغيل الاستثناء مركَّبٌ في النسخة المنشورة")
     if WS.CONSENT_TEXT not in html:
         BS.die("نصّ الإذن المعتمد غائب من الصفحة")
     return html
