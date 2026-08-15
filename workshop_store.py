@@ -31,7 +31,11 @@ import supervisor as SV
 SCHEMA = "RAWAHIL-WORKSHOP-v1.0"
 CIRCLES = ("K2", "K3", "K4")
 STORE_DIR = os.path.join(HERE, "workshop_data")
-CODES_FILE = os.path.join(STORE_DIR, "_codes.json")
+# **سجلّ الرموز خارج مجلَّد الحصيلة** (`DEC-286`): كان بداخله، فكان نسخُ
+# الحصيلة يحمل الأسماء معه — وعقدُ هذا الملف يقول إن المخزن «يحمل رمزاً
+# وتقريراً لا اسماً». فصار الصدقُ في المجلَّد كما هو في السجلّات.
+CODES_FILE = os.path.join(HERE, "workshop_codes.json")
+LEGACY_CODES = os.path.join(STORE_DIR, "_codes.json")
 
 # نصّ الإذن **المعتمد بنصّه** في `DEC-277 §2` — يُطابَق حرفياً ولا يُصاغ.
 CONSENT_TEXT = "مدرّبك يرى نتيجتك كاملةً بأرقامها"
@@ -44,13 +48,24 @@ class WorkshopError(ValueError):
 
 # ── سجلّ الرموز — يملكه المالك، وربطُ الاسم فيه لا في الحمولة ────────────
 def _load_codes():
+    """يقرأ السجلّ — ويُرحّل القديم من داخل الحصيلة **مُعلِناً** لا صامتاً."""
+    if not os.path.exists(CODES_FILE) and os.path.exists(LEGACY_CODES):
+        codes = json.load(io.open(LEGACY_CODES, encoding="utf-8"))
+        _save_codes(codes)
+        os.remove(LEGACY_CODES)
+        sys.stderr.write(
+            "· رُحِّل سجلّ الرموز إلى " + os.path.basename(CODES_FILE) +
+            " — خارج مجلَّد الحصيلة (DEC-286)\n")
+        return codes
     if not os.path.exists(CODES_FILE):
         return {}
     return json.load(io.open(CODES_FILE, encoding="utf-8"))
 
 
 def _save_codes(codes):
-    os.makedirs(STORE_DIR, exist_ok=True)
+    d = os.path.dirname(CODES_FILE)
+    if d:
+        os.makedirs(d, exist_ok=True)
     io.open(CODES_FILE, "w", encoding="utf-8").write(
         json.dumps(codes, ensure_ascii=False, sort_keys=True, indent=1) + "\n")
 
@@ -150,6 +165,44 @@ def accept(payload):
             "record_sha": record_sha, "verdicts": verdicts}
 
 
+
+# ── حقوق صاحب البيان (`DEC-277 §5` · تُنفَّذ في `DEC-286`) ───────────────
+def _record_path(code):
+    return os.path.join(STORE_DIR, code + ".json")
+
+
+def export(code):
+    """يسلّم صاحبَ البيان نسختَه **كاملةً** — الحقّ الثاني المنصوص."""
+    code = str(code).strip().upper()
+    path = _record_path(code)
+    if not os.path.exists(path):
+        raise WorkshopError(f"لا سجلّ بالرمز {code}")
+    return json.load(io.open(path, encoding="utf-8"))
+
+
+def forget(code):
+    """يمحو السجلَّ **وقيدَ الرمز معاً** — ولا محوٌ نصفيّ يترك الاسم.
+
+    ويُعلن ما مُحي: محوٌ صامتٌ لا يُطمئن صاحبَه ولا يُحاسَب عليه المالك.
+    """
+    code = str(code).strip().upper()
+    path = _record_path(code)
+    codes = _load_codes()
+    had_record, had_code = os.path.exists(path), code in codes
+    if not (had_record or had_code):
+        raise WorkshopError(f"لا أثر للرمز {code} — لا سجلّ ولا قيد")
+    if had_record:
+        os.remove(path)
+    if had_code:
+        codes.pop(code)
+        _save_codes(codes)
+    left = [os.path.exists(path), code in _load_codes()]
+    if any(left):
+        raise WorkshopError(f"محوٌ ناقص للرمز {code} — بقي أثر")
+    return {"code": code, "record_removed": had_record,
+            "code_removed": had_code}
+
+
 def load_all():
     """الحصيلة المخزَّنة — للوحة المالك (المرحلة ③)."""
     if not os.path.isdir(STORE_DIR):
@@ -167,7 +220,9 @@ def main(argv):
         print(__doc__.strip())
         print("\n  python3 workshop_store.py issue <وسم>"
               "\n  python3 workshop_store.py codes"
-              "\n  python3 workshop_store.py accept <ملف.json>")
+              "\n  python3 workshop_store.py accept <ملف.json>"
+              "\n  python3 workshop_store.py export <رمز> [ملف.json]"
+              "\n  python3 workshop_store.py forget <رمز>")
         return 2
     cmd = argv[0]
     if cmd == "issue":
@@ -187,6 +242,30 @@ def main(argv):
             print(f"❌ مردود: {e}")
             return 1
         print(f"✅ مقبول ومخزَّن — {r['path']} · بصمة السجل {r['record_sha']}")
+        return 0
+    if cmd == "export":
+        if len(argv) < 2:
+            print("❌ يلزم رمز"); return 2
+        try:
+            rec = export(argv[1])
+        except WorkshopError as e:
+            print(f"❌ {e}"); return 1
+        body = json.dumps(rec, ensure_ascii=False, sort_keys=True, indent=1)
+        out = argv[2] if len(argv) > 2 else f"rawahil-export-{rec['code']}.json"
+        io.open(out, "w", encoding="utf-8").write(body + "\n")
+        print(f"✅ صُدِّر — {out} · لصاحبه وحده")
+        return 0
+    if cmd == "forget":
+        if len(argv) < 2:
+            print("❌ يلزم رمز"); return 2
+        try:
+            r = forget(argv[1])
+        except WorkshopError as e:
+            print(f"❌ {e}"); return 1
+        # **يُعلن ما مُحي**: السجلّ والقيد كلاهما، أو ما وُجد منهما
+        print(f"✅ مُحي الرمز {r['code']} — "
+              f"السجلّ: {'مُحي' if r['record_removed'] else 'لم يكن'} · "
+              f"قيد الرمز واسمُه: {'مُحي' if r['code_removed'] else 'لم يكن'}")
         return 0
     print(f"❌ أمر غير معروف: {cmd}")
     return 2

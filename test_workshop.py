@@ -64,8 +64,11 @@ def run_in_sandbox(fn):
     """كل فحصٍ في مخزنٍ مؤقّت — فلا يلمس حصيلة ورشةٍ حقيقية."""
     tmp = tempfile.mkdtemp(prefix="ws_test_")
     old_dir, old_codes = WS.STORE_DIR, WS.CODES_FILE
-    WS.STORE_DIR = tmp
-    WS.CODES_FILE = os.path.join(tmp, "_codes.json")
+    # **التخطيط الحقيقي يُحاكى**: السجلّ خارج مجلَّد الحصيلة (`DEC-286`)،
+    # وإلّا قاس الفحصُ رملاً لا يشبه ما يعمل عند المالك.
+    WS.STORE_DIR = os.path.join(tmp, "store")
+    WS.CODES_FILE = os.path.join(tmp, "workshop_codes.json")
+    os.makedirs(WS.STORE_DIR, exist_ok=True)
     try:
         return fn()
     finally:
@@ -400,6 +403,71 @@ def test_published_copy():
           "CPL-08A-03" in kashaf and WS.SCHEMA not in kashaf, "")
 
 
+# -- 11) حقوق صاحب البيان · والهوية خارج الحصيلة (`DEC-286`) --------------
+def test_subject_rights():
+    """`DEC-277 §5` وعد بمحوٍ وتصدير — و`DEC-286` نفّذهما ويقيسهما."""
+    def body():
+        code = WS.issue("اسمٌ حقيقي", seed="rights")
+        WS.accept(_payload(code))
+
+        # ① الاسم **خارج مجلَّد الحصيلة** — فنسخُها لا يحمله
+        in_store = []
+        for root, _d, files in os.walk(WS.STORE_DIR):
+            for f in files:
+                if "اسمٌ حقيقي" in io.open(os.path.join(root, f),
+                                            encoding="utf-8").read():
+                    in_store.append(f)
+        check("11 صفر اسمٍ في مجلَّد الحصيلة", not in_store, str(in_store))
+        check("11 سجلّ الرموز خارج الحصيلة",
+              os.path.dirname(os.path.abspath(WS.CODES_FILE))
+              != os.path.abspath(WS.STORE_DIR), WS.CODES_FILE)
+
+        # ② التصدير يعطي صاحبَه سجلَّه كاملاً
+        rec = WS.export(code)
+        check("11 التصدير يعطي السجلّ كاملاً",
+              rec.get("code") == code and set(rec.get("reports", {})) ==
+              set(WS.CIRCLES), str(sorted(rec.get("reports", {}))))
+
+        # ③ المحو **كامل**: السجلّ والقيد معاً، ومُعلَنٌ ما مُحي.
+        # وخرقُ العقد يُقاس حكماً لا يُسقط الفحص معه (درس `DEC-280 §5`).
+        try:
+            r = WS.forget(code)
+            ok = (r["record_removed"] and r["code_removed"]
+                  and not os.path.exists(
+                      os.path.join(WS.STORE_DIR, code + ".json"))
+                  and code not in WS._load_codes())
+            detail = str(r)
+        except WS.WorkshopError as e:
+            ok, detail = False, "محوٌ رفضه المخزن: " + str(e)[:60]
+        check("11 المحو كاملٌ لا نصفيّ", ok, detail)
+        if not ok:
+            return True, ""
+        try:
+            WS.forget(code)
+            check("11 محوُ ما لا أثر له يُردّ", False, "مرّ بلا ردّ")
+        except WS.WorkshopError:
+            check("11 محوُ ما لا أثر له يُردّ", True, "")
+        try:
+            WS.export(code)
+            check("11 تصديرُ الممحوّ يُردّ", False, "مرّ بلا ردّ")
+        except WS.WorkshopError:
+            check("11 تصديرُ الممحوّ يُردّ", True, "")
+        return True, ""
+    run_in_sandbox(body)
+
+    # ④ الافتراضُ نفسه: سجلّ الرموز ليس داخل مجلَّد الحصيلة
+    src = io.open(os.path.join(HERE, "workshop_store.py"), encoding="utf-8").read()
+    check("11 الافتراض: السجلّ خارج الحصيلة",
+          'CODES_FILE = os.path.join(HERE, "workshop_codes.json")' in src, "")
+    gi = io.open(os.path.join(HERE, ".gitignore"), encoding="utf-8").read()
+    check("11 السجلّ مُسقَطٌ من المستودع", "workshop_codes.json" in gi, "")
+    r = subprocess.run(["git", "ls-files"], capture_output=True, text=True, cwd=HERE)
+    if r.returncode == 0:
+        tracked = [f for f in r.stdout.split("\n")
+                   if f in ("workshop_codes.json",) or f.startswith("workshop_data")]
+        check("11 صفر ملف هويةٍ متبَع", not tracked, str(tracked))
+
+
 if __name__ == "__main__":
     print("=" * 76)
     test_happy_path()
@@ -414,6 +482,7 @@ if __name__ == "__main__":
     test_server_contract()
     test_two_delivery_routes()
     test_published_copy()
+    test_subject_rights()
     print("-" * 76)
     if FAILS:
         print("النتيجة النهائية: انحدار - " + str(len(FAILS)) + ": " +

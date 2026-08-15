@@ -14,3 +14,6 @@ workshop_data/
 
 # DEC-279: صفحة الورشة مولَّدة — تُبنى ولا تُرفع
 Workshop.html
+
+# DEC-286: سجلّ الرموز يحمل الأسماء — خارج المستودع كالحصيلة
+workshop_codes.json

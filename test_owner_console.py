@@ -88,10 +88,13 @@ def seed(n=3, tamper_consent_on=None):
 
 
 def run_in_sandbox(fn):
-    tmp = tempfile.mkdtemp(prefix="oc_test_")
+    tmp = tempfile.mkdtemp(prefix="ws_test_")
     old_dir, old_codes = WS.STORE_DIR, WS.CODES_FILE
-    WS.STORE_DIR = tmp
-    WS.CODES_FILE = os.path.join(tmp, "_codes.json")
+    # **التخطيط الحقيقي يُحاكى**: السجلّ خارج مجلَّد الحصيلة (`DEC-286`)،
+    # وإلّا قاس الفحصُ رملاً لا يشبه ما يعمل عند المالك.
+    WS.STORE_DIR = os.path.join(tmp, "store")
+    WS.CODES_FILE = os.path.join(tmp, "workshop_codes.json")
+    os.makedirs(WS.STORE_DIR, exist_ok=True)
     try:
         return fn()
     finally:
