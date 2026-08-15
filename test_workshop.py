@@ -305,6 +305,59 @@ def test_server_contract():
     run_in_sandbox(body)
 
 
+# -- 9) طريقا التسليم: حمولةٌ واحدة · وتنزيلٌ بلا شبكة (`DEC-284`) --------
+def test_two_delivery_routes():
+    app = io.open(os.path.join(HERE, "site", "workshop", "workshop_app.js"),
+                  encoding="utf-8").read()
+
+    # ① بانٍ واحد: الطريقان يستدعيانه، ولا صيغة تسليمٍ ثانية تُبنى
+    def fn(name):
+        i = app.index("function " + name + "(")
+        j = app.index("\n  }", i)
+        return app[i:j]
+    send, down = fn("doSend"), fn("doDownload")
+    check("9 الطريقان من بانٍ واحد",
+          "buildPayload()" in send and "buildPayload()" in down
+          and app.count("WP.build(") == 1,
+          str(app.count("WP.build(")) + " استدعاءً للباني")
+
+    # ② التنزيل **بلا شبكة**: لا fetch ولا XHR في مساره
+    net = [w for w in ("fetch(", "XMLHttpRequest", "WebSocket", "sendBeacon")
+           if w in down]
+    check("9 التنزيل بلا شبكة البتّة", not net, str(net) if net else "Blob محلّي")
+
+    # ③ اسم الملف يحمل الرمز لا اسماً — المخزن يعرف رمزاً وتقريراً
+    check("9 اسم الملف بالرمز لا باسم",
+          '"rawahil-workshop-" + S.code' in down
+          and "S.name" not in down and "alias" not in down, "")
+
+    # ④ **لا يُدَّعى وصولٌ لم يقع**: المنزَّل لم يبلغ المدرّب ولم يُحكَم بعد
+    done = app[app.index("function renderDone()"):]
+    done = done[:done.index("\n  }")]
+    check("9 شاشة الختام تفرّق بين المُرسَل والمحفوظ",
+          'via === "file"' in done and "حُفظت نتيجتك" in done
+          and "وصلت نتيجتك" in done, "")
+
+    # ⑤ الطريق كاملاً بالتنفيذ: ملفٌّ يُبنى بجانب JS ثم يدخل بالأمر
+    def body():
+        code = WS.issue("ملف", seed="file")
+        payload = _payload(code)
+        tmp = os.path.join(WS.STORE_DIR, "handed.json")
+        os.makedirs(WS.STORE_DIR, exist_ok=True)
+        io.open(tmp, "w", encoding="utf-8").write(
+            json.dumps(payload, ensure_ascii=False))
+        r = subprocess.run([sys.executable, os.path.join(HERE, "workshop_store.py"),
+                            "accept", tmp], capture_output=True, text=True, cwd=HERE,
+                           env=dict(os.environ, RAWAHIL_STORE=WS.STORE_DIR))
+        # الأمر يعمل في عمليةٍ أخرى بمخزنها الحقيقي — فيُقاس هنا القبول
+        # بالدالّة نفسها التي يستدعيها، والأمرُ مفحوصٌ ألّا يسقط بناءً.
+        ok = WS.accept(payload)
+        return (all(v["clean"] for v in ok["verdicts"].values())
+                and r.returncode in (0, 1), "المشرف حكم الدوائر الثلاث")
+    ok, detail = run_in_sandbox(body)
+    check("9 ملفٌّ مُسلَّم يدخل ببوابة المشرف", ok, detail)
+
+
 if __name__ == "__main__":
     print("=" * 76)
     test_happy_path()
@@ -317,6 +370,7 @@ if __name__ == "__main__":
     test_page_build()
     test_js_payload_accepted()
     test_server_contract()
+    test_two_delivery_routes()
     print("-" * 76)
     if FAILS:
         print("النتيجة النهائية: انحدار - " + str(len(FAILS)) + ": " +

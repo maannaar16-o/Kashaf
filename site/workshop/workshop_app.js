@@ -268,36 +268,53 @@
     S.cursor = "send"; save(); route();
   }
 
-  // ── ③ الإرسال — نقطة الشبكة الوحيدة في هذه الصفحة ──────────────────
+  // ── ③ التسليم — طريقان، وحمولةٌ واحدة ───────────────────────────────
+  // **الباني واحد** (`ws_payload.js`): تُبنى الحمولة مرّةً وتُستعمل في
+  // الطريقين، فلا صيغةُ تسليمٍ ثانية تنجرف عن الأولى (`م-2`).
+  //
+  // والطريق الثاني **بلا شبكة أصلاً**: `Blob` محلّي لا `fetch` — فقفلُ
+  // الشبكة لا يُمسّ، والصفحة تعمل حيث لا خادم (`DEC-284`).
+  function buildPayload() {
+    var gen = DR.generate(S.answers, K2_MAP, K2_ORDER, K3_MAP, K4_MAP);
+    if (gen.errors && gen.errors.length && !gen.k2 && !gen.k3 && !gen.k4) {
+      throw new Error(gen.errors.join(" · "));
+    }
+    return WP.build(W.SCHEMA, W.CONSENT_TEXT, S.code, gen);
+  }
+
   function renderSend(err) {
     var s = screen();
     s.appendChild(el("h1", "t-title small", "اكتمل الاستبيان"));
     var box = el("blockquote", "covenant");
     box.appendChild(el("p", "", "«" + W.CONSENT_TEXT + "»"));
     box.appendChild(el("p", "cov-sub",
-      "بالضغط على «أرسل» تصل تقاريرك الثلاثة إلى مدرّب الورشة تحت الرمز " +
-      S.code + " — وحده، بلا اسمك."));
+      "تقاريرك الثلاثة تصل مدرّب الورشة تحت الرمز " + S.code +
+      " — وحده، بلا اسمك. اختر كيف تُسلّمها:"));
     s.appendChild(box);
     if (err) s.appendChild(Object.assign(el("blockquote", "warnbox"), { textContent: err }));
+
     var acts = el("div", "actions");
     var go = el("button", "btn big", "أرسل إلى مدرّب الورشة");
-    go.onclick = function () { doSend(s, go); };
+    go.onclick = function () { doSend(go); };
     acts.appendChild(go);
+    var dl = el("button", "btn big ghost", "نزّل نتيجتك لتسلّمها بنفسك");
+    dl.onclick = function () { doDownload(dl); };
+    acts.appendChild(dl);
     s.appendChild(acts);
+
+    s.appendChild(el("p", "faintline",
+      "الإرسال يحتاج خادم الورشة. والتنزيل يعمل بلا شبكة: تحفظ ملفاً " +
+      "وتسلّمه لمدرّبك بأي وسيلة."));
   }
 
-  function doSend(s, btn) {
+  function doSend(btn) {
     btn.disabled = true;
     btn.textContent = "جارٍ التوليد والإرسال…";
-    var gen, body;
+    var body;
     try {
-      gen = DR.generate(S.answers, K2_MAP, K2_ORDER, K3_MAP, K4_MAP);
-      body = WP.build(W.SCHEMA, W.CONSENT_TEXT, S.code, gen);
+      body = buildPayload();
     } catch (e) {
       return renderSend("تعذّر توليد التقارير: " + (e && e.message ? e.message : e));
-    }
-    if (gen.errors && gen.errors.length && !gen.k2 && !gen.k3 && !gen.k4) {
-      return renderSend("تعذّر توليد التقارير: " + gen.errors.join(" · "));
     }
     fetch("/submit", {
       method: "POST",
@@ -307,17 +324,50 @@
       return r.json().then(function (j) { return { ok: r.ok, j: j }; });
     }).then(function (r) {
       if (!r.ok) return renderSend("ردّ الخادم: " + (r.j.error || "مردود بلا بيان"));
-      S.sent = r.j; S.cursor = "done"; save(); route();
+      S.sent = { via: "server", code: r.j.code }; S.cursor = "done"; save(); route();
     }).catch(function (e) {
-      renderSend("تعذّر الإرسال: " + (e && e.message ? e.message : e));
+      renderSend("تعذّر الإرسال: " + (e && e.message ? e.message : e) +
+                 " — يمكنك تنزيل نتيجتك وتسليمها بنفسك.");
     });
+  }
+
+  function doDownload(btn) {
+    btn.disabled = true;
+    btn.textContent = "جارٍ التوليد…";
+    var body;
+    try {
+      body = buildPayload();
+    } catch (e) {
+      return renderSend("تعذّر توليد التقارير: " + (e && e.message ? e.message : e));
+    }
+    // اسم الملف يحمل **الرمز** لا اسماً: المخزن يعرف رمزاً وتقريراً
+    // لا اسماً (`DEC-277 §5`)، والاسمُ في الملف يُبطل ذلك.
+    var name = "rawahil-workshop-" + S.code + ".json";
+    try {
+      var blob = new Blob([JSON.stringify(body)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = name; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      return renderSend("تعذّر حفظ الملف: " + (e && e.message ? e.message : e));
+    }
+    S.sent = { via: "file", code: S.code, file: name };
+    S.cursor = "done"; save(); route();
   }
 
   function renderDone() {
     var s = screen();
-    s.appendChild(el("h1", "t-title small", "وصلت نتيجتك"));
-    s.appendChild(el("p", "t-sub", "الرمز " + S.code +
-      " · وحكم أداة المشرف على الدوائر الثلاث: مقبول"));
+    var byFile = S.sent && S.sent.via === "file";
+    // **لا يُدَّعى وصولٌ لم يقع**: الملف المنزَّل لم يبلغ المدرّب بعد،
+    // ولم يمرّ بأداة المشرف — تلك تحكمه حين يستقبله (`DEC-284`).
+    s.appendChild(el("h1", "t-title small",
+      byFile ? "حُفظت نتيجتك" : "وصلت نتيجتك"));
+    s.appendChild(el("p", "t-sub", byFile
+      ? "الرمز " + S.code + " · الملف " + S.sent.file +
+        " — سلّمه لمدرّبك ليُدخله"
+      : "الرمز " + S.code +
+        " · وحكم أداة المشرف على الدوائر الثلاث: مقبول"));
     var box = el("div", "privacy");
     box.appendChild(el("p", "",
       "قراءة تقريرك تكون مع مدرّبك في الورشة. ولا يُقرأ فارقٌ بين قياسين — " +
