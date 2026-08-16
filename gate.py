@@ -215,7 +215,7 @@ def check_numbering():
     m2 = os.path.join(HERE, "02-MASTER-Tracking_And_Risks.md")
     if not (os.path.exists(m1) and os.path.exists(m2)):
         print("⚪ تكامل الترقيم — سجلّ غائب · الفحص متعذّر لا مُجتاز")
-        return
+        return 0, 0
     t1 = io.open(m1, encoding="utf-8").read()
     t2 = io.open(m2, encoding="utf-8").read()
 
@@ -224,6 +224,8 @@ def check_numbering():
          f"مكرَّر: {dup}" if dup else f"{n_dec} قراراً · {reserved} صفّاً محجوزاً مستثنىً")
 
     nums = sorted(int(c[4:]) for c, r in ROW_DEC.findall(t1)
+                  if not _is_reserved(r))
+    chgs = sorted(int(c[4:]) for c, r in ROW_CHG.findall(t2)
                   if not _is_reserved(r))
     nxt = re.search(r"الترقيم التالي:\*\* `DEC-(\d+)`", t1)
     if not nxt or not nums:
@@ -253,8 +255,6 @@ def check_numbering():
     hv = os.path.join(HERE, "00-HANDOVER_2026-08-05_Resume_Directive.md")
     if os.path.exists(hv) and nums:
         th = io.open(hv, encoding="utf-8").read()
-        chgs = sorted(int(c[4:]) for c, r in ROW_CHG.findall(t2)
-                      if not _is_reserved(r))
         mh = re.search(r"خط الأساس `DEC-(\d+)` · الترقيم التالي `DEC-(\d+)`"
                        r" · `CHG-(\d+)`", th)
         if not mh:
@@ -268,6 +268,80 @@ def check_numbering():
                  f"المُعلَن DEC-{base}/DEC-{nxt_h}/CHG-{chg_h} · "
                  f"المتوقَّع DEC-{want[0]}/DEC-{want[1]}/CHG-{want[2]}"
                  if want != got else f"DEC-{base} · CHG-{chg_h}")
+
+    return (max(nums) if nums else 0), (max(chgs) if chgs else 0)
+
+
+# ── ⑦ ادّعاءات النطاق تُشتقّ لا تُحفظ — `DEC-290` ────────────────────────
+# `DEC-287` وسّع الفحص إلى **حقلٍ واحد** في `00-HANDOVER`، فزحف الصنفُ
+# **إلى السطر المجاور**: الوثيقة نفسها كانت تقول في ذيلها «خط الأساس
+# `DEC-289`» وفي رأسها «آخر قرار مختوم `DEC-270`» — **تسعة عشر قراراً بين
+# سطرَين**. ⇒ **وفحصٌ يقرأ حقلاً يُخدَع بجاره**، فيُقاس كل ادّعاء عملةٍ
+# في الرأس والذيل لا حقلٌ منتقىً منها.
+#
+# **والوثائق الحيّة تُعلَن** ولا تُستنتج من الاسم ولا من تاريخه: `00-HANDOVER`
+# يحمل تاريخاً في اسمه **وهو حيٌّ يُزامَن** (`CHG-088`)، و`00-SESSION-*`
+# تحمل تواريخ **وهي محاضر لحظات** — وتصويبُ المحضر إعادةُ كتابةٍ لما جرى،
+# يمنعها ما يصون الترتيب الزمني في `DEC-274`. **فالخارج عن القائمة محضرٌ
+# لا متروك.**
+# **ولكلٍّ عددُ ادّعاءاتٍ أدنى مُعلَن** — لأن الحقنة الثالثة كشفت أن
+# الفحص **يُخدَع بالحذف**: مسحُ حقلٍ يُسكته بدل أن يُسقطه، وهو عين ما
+# رصده `DEC-287 §4` ثم تكرّر هنا. **فقياسُ وجود الادّعاء جزءٌ من قياس
+# صدقه** — والعدد يُعلَن كما يُعلَن `EXPECTED_COUNT`، فتغييرُ رأسٍ يصير
+# تصريحاً لا صمتاً.
+LIVE_DOCS = [
+    ("01-MASTER-Governance_Foundations_And_Decisions.md", 3),
+    ("02-MASTER-Tracking_And_Risks.md", 3),
+    ("00-INDEX_Master_Knowledge_Base_Index.md", 3),
+    ("00-HANDOVER_2026-08-05_Resume_Directive.md", 7),
+    ("00-MANIFEST_Upload_And_Sync_Checklist.md", 5),
+]
+HEAD_LINES = 25                      # كتلة الرأس · والذيل يُلتقط بعلامته
+RANGE_RE = re.compile(r"(DEC|CHG)-0*(\d+)\s*…\s*(?:(?:DEC|CHG)-)?0*(\d+)")
+NEXT_RE = re.compile(r"الترقيم التالي[:\s*]*`DEC-0*(\d+)`")
+SEALED_RE = re.compile(r"(?:آخر قرار مختوم|خط الأساس)[^\n]{0,40}?`DEC-0*(\d+)`")
+LASTCHG_RE = re.compile(r"آخر تغيير[^\n]{0,40}?`CHG-0*(\d+)`")
+
+
+def _claims(line, hi_dec, hi_chg):
+    """ادّعاءات العملة في سطرٍ واحد → قائمة (الوصف · المُعلَن · المتوقَّع).
+
+    **والمدى يُقاس بأعلاه وحده**: رأسُ `01-MASTER` يعدّد مديات الجلسات
+    كلَّها، فإلزامُ كلٍّ منها بالأعلى يمحو التاريخ — والمطلوب أن **يمتدّ
+    التعداد** إلى آخر جلسة لا أن تُزوَّر أولاها.
+    """
+    out = []
+    for kind, hi in (("DEC", hi_dec), ("CHG", hi_chg)):
+        ups = [int(c) for k, _a, c in RANGE_RE.findall(line) if k == kind]
+        if ups:
+            out.append((f"مدى {kind}", max(ups), hi))
+    for rx, label, want in ((NEXT_RE, "الترقيم التالي", hi_dec + 1),
+                            (SEALED_RE, "آخر قرار مختوم", hi_dec),
+                            (LASTCHG_RE, "آخر تغيير", hi_chg)):
+        for g in rx.findall(line):
+            out.append((label, int(g), want))
+    return out
+
+
+def check_range_claims(hi_dec, hi_chg):
+    for name, floor in LIVE_DOCS:
+        path = os.path.join(HERE, name)
+        if not os.path.exists(path):
+            mark(False, "وثيقة حيّة موجودة", name + " غائبة")
+            continue
+        lines = io.open(path, encoding="utf-8").read().split("\n")
+        stale, total = [], 0
+        for i, ln in enumerate(lines, 1):
+            if not (i <= HEAD_LINES or "**[نهاية" in ln):
+                continue
+            for label, got, want in _claims(ln, hi_dec, hi_chg):
+                total += 1
+                if got != want:
+                    stale.append(f"س{i} {label} {got}≠{want}")
+        if total < floor:
+            stale.append(f"ادّعاءٌ محذوف: {total} من {floor}")
+        mark(not stale, name.split("_")[0] + ": ادّعاءات الرأس والذيل مشتقّة",
+             " · ".join(stale[:4]) if stale else f"{total} ادّعاءً مطابقاً")
 
 
 # ── ⑥ مزامنة الديون المُعلنة — `DEC-276` ─────────────────────────────────
@@ -327,8 +401,9 @@ def main(argv):
     check_coverage()
     check_docs()
     check_generated()
-    check_numbering()
+    hi = check_numbering()
     check_debts()
+    check_range_claims(*hi)
     print("═" * 78)
     if FAILS:
         print(f"النتيجة: ❌ انحدار — {len(FAILS)}")

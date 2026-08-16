@@ -30,7 +30,7 @@ python3 gate.py                 # setup + 27 tools + 7 fingerprints + the six se
 python3 gate.py --list          # the list and its fingerprints, without running
 ```
 
-Beyond running the tools, the gate enforces six things about itself and the repo:
+Beyond running the tools, the gate enforces seven things about itself and the repo:
 
 | # | Self-check | Why it exists |
 | :-- | :-- | :-- |
@@ -40,6 +40,9 @@ Beyond running the tools, the gate enforces six things about itself and the repo
 | ④ | no generated artifact has become git-tracked (`CHG-054`) | `git ls-files` knows the truth; attention does not |
 | ⑤ | numbering integrity (`DEC-274`): zero duplicate `DEC`/`CHG`, zero colliding document code, `الترقيم التالي` = highest + 1 | concurrent actors race for numbers |
 | ⑥ | declared debts in `146 §5` = `open_debts` in the K4 engine (`DEC-276`) | the last manual sync became a measured one |
+| ⑦ | every currency claim in a **live** document's header or footer is derived, not remembered (`DEC-290`) — ranges, `الترقيم التالي`, last sealed `DEC`, last `CHG` — with a declared minimum count per document | ⑤ measured one *field*, so the drift moved to the line next door: `00-HANDOVER` said `DEC-289` in its footer and `DEC-270` in its header, and `00-MANIFEST` published a competing `الترقيم التالي` 121 behind |
+
+The live-document list in ⑦ is **declared, not inferred**: a date in the filename separates nothing (`00-HANDOVER_2026-08-05` is live and synced in place; `00-SESSION-*` are records of a moment), and correcting a record would rewrite what happened — which `DEC-274`'s chronological-order rule forbids. What ⑦ measures is *number claims only*; prose counts are not covered, and that limit is stated rather than implied.
 
 Because of ③, **this file is machine-checked**: every script invoked here with `python3` must belong to the gate's list (only `build_packs.py`, `build_site.py`, `build_supervisor_html.py`, `gate.py` are exempt — so do not write an invocation line for any other script, not even a placeholder), and any 16-hex string near the word fingerprint/parity must be one the gate knows. Editing this section carelessly turns the gate red.
 
