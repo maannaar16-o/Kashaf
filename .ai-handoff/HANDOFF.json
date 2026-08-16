@@ -1,17 +1,168 @@
 {
   "protocol_version": "1.1",
   "task_id": "KASHAF-AI-BRIDGE-HARDENING-002",
-  "status": "in_progress",
+  "status": "ready_for_codex",
   "from_actor": "claude",
-  "to_actor": "claude",
+  "to_actor": "codex",
   "iteration": 0,
-  "summary": "بدأ التنفيذ داخل النطاق المصرَّح به.",
-  "changed_files": [],
-  "commands_run": [],
-  "tests": [],
-  "findings": [],
+  "summary": "أُصلح AIB-01 وAIB-02 ورُفع البروتوكول 1.0 ← 1.1. صار المدقّق يقيس ثلاثة أشياء لا واحداً: **الانتقال** بين لقطتَي التزامَين (لا من حقلٍ يصف نفسه — فذلك إقرار، والمُقِرّ هو المتّهم) · **واتساق** الملفَّين والفاعلَين والعدّاد · **وصدق** last_commit. وحدُّ الدَور عولج بإعلانه لا بادّعاء حلّه: كتابةُ البصمة تغيّر المحتوى فتغيّر البصمة، والاستحالة رياضية — فحُدّت الدلالة بما لا يستلزمها. ويلزم من قياس الانتقال أثرٌ مُعلَن: انتقالٌ واحدٌ لكل التزام، وهذه الدفعة نُفِّذت بالقاعدة في خمسة التزامات.",
+  "changed_files": [
+    "scripts/validate_ai_handoff.py",
+    "scripts/test_ai_handoff.py",
+    ".github/workflows/ai-handoff-validate.yml",
+    ".ai-handoff/README.md",
+    ".ai-handoff/TASK_QUEUE.json",
+    ".ai-handoff/HANDOFF.json",
+    "162-BRIDGE-HARDENING_DEC-291.md",
+    "01-MASTER-Governance_Foundations_And_Decisions.md",
+    "02-MASTER-Tracking_And_Risks.md",
+    "00-INDEX_Master_Knowledge_Base_Index.md",
+    "00-HANDOVER_2026-08-05_Resume_Directive.md"
+  ],
+  "commands_run": [
+    "python3 scripts/validate_ai_handoff.py",
+    "python3 scripts/test_ai_handoff.py",
+    "python3 gate.py"
+  ],
+  "tests": [
+    {
+      "name": "مدقّق التسليم — الحالة الجارية",
+      "result": "pass",
+      "detail": "PASS: 2 task(s); 1 transition(s) checked, 3 pre-1.1 pair(s) skipped"
+    },
+    {
+      "name": "فحوص الجسر — 27 فحصاً",
+      "result": "pass",
+      "detail": "لا انحدار · 7 انتقالٍ مشروعٍ يمرّ · 11 حقنةً سلبيةً مفردة · 6 على صدق البصمة · 2 على الاستثناء وعدّه"
+    },
+    {
+      "name": "حقنة AIB-01/① قفزةٌ queued → approved",
+      "result": "pass",
+      "detail": "illegal transition"
+    },
+    {
+      "name": "حقنة AIB-01/② انتقالٌ بعد approved النهائية",
+      "result": "pass",
+      "detail": "allowed: none"
+    },
+    {
+      "name": "حقنة AIB-01/③ حالةُ المهمّة ≠ حالةُ التسليم",
+      "result": "pass",
+      "detail": "خطأٌ واحدٌ فقط — الحقنة مفردة"
+    },
+    {
+      "name": "حقنة AIB-01/④ next_actor ≠ to_actor",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "حقنة AIB-01/⑤ المهمّة النشطة ≠ مهمّة التسليم",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "حقنة AIB-01/⑥ iteration تزيد بلا طلب تصحيح",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "حقنة AIB-01/⑦ iteration تقفز اثنتين",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "حقنة AIB-01/⑧ iteration تنقص",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "حقنة AIB-01/⑨ بلغت الحدّ وما زالت جارية",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "حقنة AIB-01/⑩ مهمّةٌ جديدة تبدأ من منتصف الدورة",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "حقنة AIB-02/① بصمةٌ غائبة عند التسليم",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "حقنة AIB-02/② بصمةٌ ليست SHA",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "حقنة AIB-02/③ التزامٌ غير موجود — على git الحقيقي",
+      "result": "pass",
+      "detail": "does not exist"
+    },
+    {
+      "name": "حقنة AIB-02/④ بصمةٌ يتيمة حقيقية — على git الحقيقي",
+      "result": "pass",
+      "detail": "fdec1324… التي خلّفها --amend: not reachable"
+    },
+    {
+      "name": "حقنة AIB-02/⑤ ادّعاءٌ دائري — على git الحقيقي",
+      "result": "pass",
+      "detail": "circular claim"
+    },
+    {
+      "name": "حقنة AIB-02/⑥ مستنسخٌ ضحل يُقال متعذّراً",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "name": "بوابة القبول الكاملة",
+      "result": "pass",
+      "detail": "27/27 أداة · سبع بصمات حرفياً · سبع علامات · صفر انجراف"
+    }
+  ],
+  "findings": [
+    {
+      "id": "AIB-01",
+      "severity": "medium",
+      "file": "scripts/validate_ai_handoff.py",
+      "description": "المدقّق كان يفحص الشكل لا آلة الحالات.",
+      "acceptance_criteria": "يرفض كل انتقالٍ خارج آلة الحالات، ويوجب اتساق الملفَّين والفاعلَين والعدّاد.",
+      "fixed": true,
+      "evidence": "TRANSITIONS منصوصة · القياس بين لقطتَي التزامَين · 11 حقنةً مفردة"
+    },
+    {
+      "id": "AIB-02",
+      "severity": "low",
+      "file": "scripts/validate_ai_handoff.py",
+      "description": "المدقّق لم يكن يتحقّق أن last_commit التزامٌ قائمٌ بالغٌ غير دائري.",
+      "acceptance_criteria": "يرفض البصمة الميتة واليتيمة والدائرية، وتُعرَّف دلالتها بلا دَور.",
+      "fixed": true,
+      "evidence": "ثلاث حقنات على git الحقيقي · والدلالة معرَّفةٌ في README §②"
+    },
+    {
+      "id": "AIB-03",
+      "severity": "low",
+      "file": "gate.py",
+      "description": "**ثغرةٌ في العلامة ⑦** (`DEC-290`): قاعدتُها «أعلى مدىً على السطر = الأعلى المختوم» **لا تقيس جلسةً تختم قراراً واحداً** — فلا مدى لها. أسقطت البوابةَ عند ختم DEC-291. **والإصلاح مُجرَّبٌ وناجح**: يُضمّ الرقم المفرد إلى تعداد سطرٍ يعدّد أصلاً، مع نزع «الترقيم التالي» الذي له قاعدتُه.",
+      "acceptance_criteria": "تقيس ⑦ الرقم المفرد على سطرٍ يعدّد · وتُحقن بجلسةٍ ذات قرارٍ واحد.",
+      "fixed": false,
+      "why_not_fixed": "gate.py **خارج allowed_paths** لهذه المهمّة. جُرّب الإصلاح ثم أُعيد الملفّ إلى حاله، وحُلّت الحالة **داخل النطاق** بمدىً صريحٍ صادق (`DEC-183…291`). **والثغرة تعود عند أول جلسةٍ تختم قراراً واحداً.**"
+    }
+  ],
   "blockers": [],
-  "decisions_needed": [],
-  "last_commit": null,
+  "decisions_needed": [
+    {
+      "id": "AIB-D2",
+      "question": "`AIB-03`: أتُفتح مهمّةٌ بنطاقٍ يشمل `gate.py` لسدّ ثغرة العلامة ⑦، أم يُكتفى بالمدى الصريح قاعدةً في كتابة الرؤوس؟",
+      "for_actor": "owner"
+    },
+    {
+      "id": "AIB-D3",
+      "question": "«انتقالٌ واحدٌ لكل التزام» صار **إلزاماً** على كل تسليمٍ قادم — أيُقرّ قاعدةً دائمة في `.ai-handoff/README.md` كما هو مكتوبٌ الآن؟",
+      "for_actor": "owner"
+    }
+  ],
+  "last_commit": "eb274bc82c68f4dff544b4ce4cbb82b8a76a94ce",
   "updated_at": "2026-08-16T00:00:00Z"
 }

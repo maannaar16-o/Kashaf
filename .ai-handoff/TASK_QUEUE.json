@@ -72,8 +72,8 @@
         "حقنةٌ سلبيةٌ مستقلّة لكل عيب — لا حقنةٌ تجمع عدّة مخالفات",
         "python3 gate.py أخضر · وصفر مساسٍ بالقياس أو المحتوى التفسيري"
       ],
-      "status": "in_progress",
-      "next_actor": "claude",
+      "status": "ready_for_codex",
+      "next_actor": "codex",
       "iteration": 0,
       "max_iterations": 3,
       "owner_approval_required_for": [
