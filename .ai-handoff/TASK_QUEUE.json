@@ -1,8 +1,8 @@
 {
   "protocol_version": "1.0",
   "project": "Kashaf",
-  "updated_at": "2026-08-13T00:00:00Z",
-  "active_task_id": null,
+  "updated_at": "2026-08-16T00:00:00Z",
+  "active_task_id": "KASHAF-AI-BRIDGE-DEMO-001",
   "tasks": [
     {
       "id": "KASHAF-AI-BRIDGE-DEMO-001",
@@ -22,8 +22,8 @@
         "تحديث HANDOFF.json بتسليم تجريبي صالح",
         "اجتياز مدقق handoff"
       ],
-      "status": "queued",
-      "next_actor": "claude",
+      "status": "ready_for_codex",
+      "next_actor": "codex",
       "iteration": 0,
       "max_iterations": 3,
       "owner_approval_required_for": [
