@@ -1,11 +1,11 @@
 {
   "protocol_version": "1.1",
   "task_id": "KASHAF-AI-BRIDGE-HARDENING-002",
-  "status": "ready_for_codex",
-  "from_actor": "claude",
-  "to_actor": "codex",
-  "iteration": 0,
-  "summary": "أُصلح AIB-01 وAIB-02 ورُفع البروتوكول 1.0 ← 1.1. صار المدقّق يقيس ثلاثة أشياء لا واحداً: **الانتقال** بين لقطتَي التزامَين (لا من حقلٍ يصف نفسه — فذلك إقرار، والمُقِرّ هو المتّهم) · **واتساق** الملفَّين والفاعلَين والعدّاد · **وصدق** last_commit. وحدُّ الدَور عولج بإعلانه لا بادّعاء حلّه: كتابةُ البصمة تغيّر المحتوى فتغيّر البصمة، والاستحالة رياضية — فحُدّت الدلالة بما لا يستلزمها. ويلزم من قياس الانتقال أثرٌ مُعلَن: انتقالٌ واحدٌ لكل التزام، وهذه الدفعة نُفِّذت بالقاعدة في خمسة التزامات.",
+  "status": "changes_requested",
+  "from_actor": "codex",
+  "to_actor": "claude",
+  "iteration": 1,
+  "summary": "أُصلح AIB-01 وAIB-02 ورُفع البروتوكول 1.0 ← 1.1. صار المدقّق يقيس ثلاثة أشياء لا واحداً: **الانتقال** بين لقطتَي التزامَين (لا من حقلٍ يصف نفسه — فذلك إقرار، والمُقِرّ هو المتّهم) · **واتساق** الملفَّين والفاعلَين والعدّاد · **وصدق** last_commit. وحدُّ الدَور عولج بإعلانه لا بادّعاء حلّه: كتابةُ البصمة تغيّر المحتوى فتغيّر البصمة، والاستحالة رياضية — فحُدّت الدلالة بما لا يستلزمها. ويلزم من قياس الانتقال أثرٌ مُعلَن: انتقالٌ واحدٌ لكل التزام، وهذه الدفعة نُفِّذت بالقاعدة في خمسة التزامات. · مراجعة Codex: لم يُعتمد التسليم. رُصد ارتداد مهمة سابقة معتمدة بسبب فرع متأخر ومتعارض مع main، وثغرة في المدقق تسمح بتغيير حالة مهمة غير نشطة دون رصد، وتعديل 00-MANIFEST خارج allowed_paths وغير مسجل في changed_files. يلزم التصحيح وإعادة تشغيل بوابتي GitHub على رأس قابل للدمج.",
   "changed_files": [
     "scripts/validate_ai_handoff.py",
     "scripts/test_ai_handoff.py",
@@ -148,6 +148,38 @@
       "acceptance_criteria": "تقيس ⑦ الرقم المفرد على سطرٍ يعدّد · وتُحقن بجلسةٍ ذات قرارٍ واحد.",
       "fixed": false,
       "why_not_fixed": "gate.py **خارج allowed_paths** لهذه المهمّة. جُرّب الإصلاح ثم أُعيد الملفّ إلى حاله، وحُلّت الحالة **داخل النطاق** بمدىً صريحٍ صادق (`DEC-183…291`). **والثغرة تعود عند أول جلسةٍ تختم قراراً واحداً.**"
+    },
+    {
+      "id": "AIB-R1",
+      "severity": "high",
+      "file": ".ai-handoff/TASK_QUEUE.json",
+      "description": "أعاد رأس PR #18 المهمة النهائية KASHAF-AI-BRIDGE-DEMO-001 من approved/owner في main إلى ready_for_codex/codex، والمدقق الجديد لم يرصد انتقال approved المحظور لمهمة غير نشطة.",
+      "acceptance_criteria": "أعد مزامنة الفرع مع main مع بقاء المهمة السابقة approved/owner، ووسّع مدقق الانتقالات ليقارن حالات كل task ID متكرر بين لقطتي TASK_QUEUE، مع حقنة مستقلة تعيد فتح مهمة غير نشطة معتمدة.",
+      "fixed": false
+    },
+    {
+      "id": "AIB-R2",
+      "severity": "high",
+      "file": "PR #18 / git history",
+      "description": "الفرع متشعب عن main: ahead 5 وbehind 1، وmerge-base عند 576697d؛ PR غير قابل للدمج ولا توجد فحوص pull_request للرأس e5cb7c9.",
+      "acceptance_criteria": "ادمج أو أعد تأسيس main بأمان دون الكتابة فوق عمل الآخرين، حل التعارض، ثم أثبت نجاح AI Handoff Validate وبوابة القبول على رأس PR قابل للدمج.",
+      "fixed": false
+    },
+    {
+      "id": "AIB-R3",
+      "severity": "medium",
+      "file": "00-MANIFEST_Upload_And_Sync_Checklist.md",
+      "description": "الملف معدّل في PR لكنه غير مدرج في allowed_paths للمهمة ولا في HANDOFF.changed_files.",
+      "acceptance_criteria": "إما أرجع التعديل، أو أدرج الملف صراحة في النطاق وchanged_files مع سند الحاجة الحوكمية.",
+      "fixed": false
+    },
+    {
+      "id": "AIB-R4",
+      "severity": "medium",
+      "file": "scripts/validate_ai_handoff.py",
+      "description": "history يضيف لقطة العمل الحالية فقط إذا تغير HANDOFF، ولذلك يمكن أن يفوّت تغييرات TASK_QUEUE-only؛ كما أن transition_errors يتابع مهمة HANDOFF ولا يتحقق من انتقالات جميع المهام.",
+      "acceptance_criteria": "اجمع لقطات عند تغير TASK_QUEUE أو HANDOFF، وأدخل الزوج الجاري إذا تغير أي منهما، وقارن انتقال كل مهمة مشتركة بين اللقطتين، مع اختبارات سلبية مستقلة.",
+      "fixed": false
     }
   ],
   "blockers": [],
