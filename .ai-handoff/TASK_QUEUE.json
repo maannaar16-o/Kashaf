@@ -1,8 +1,8 @@
 {
-  "protocol_version": "1.0",
+  "protocol_version": "1.1",
   "project": "Kashaf",
   "updated_at": "2026-08-16T00:00:00Z",
-  "active_task_id": "KASHAF-AI-BRIDGE-DEMO-001",
+  "active_task_id": "KASHAF-AI-BRIDGE-HARDENING-002",
   "tasks": [
     {
       "id": "KASHAF-AI-BRIDGE-DEMO-001",
@@ -24,6 +24,56 @@
       ],
       "status": "ready_for_codex",
       "next_actor": "codex",
+      "iteration": 0,
+      "max_iterations": 3,
+      "owner_approval_required_for": [
+        "governance_change",
+        "measurement_change",
+        "public_deploy",
+        "destructive_action",
+        "merge"
+      ]
+    },
+    {
+      "id": "KASHAF-AI-BRIDGE-HARDENING-002",
+      "title": "إصلاح AIB-01 وAIB-02 — تقوية مدقّق الجسر",
+      "objective": "أن يتحقّق المدقّق من **منطق انتقال الحالات** و**اتساق ملفَّي التسليم** و**صدق last_commit** — فلا يمرّ انتقالٌ غير مشروع ولا بصمةٌ لا تقود إلى شيء.",
+      "scope": {
+        "allowed_paths": [
+          ".ai-handoff/",
+          "scripts/validate_ai_handoff.py",
+          ".github/workflows/ai-handoff-validate.yml",
+          "scripts/test_ai_handoff.py",
+          "01-MASTER-Governance_Foundations_And_Decisions.md",
+          "02-MASTER-Tracking_And_Risks.md",
+          "00-INDEX_Master_Knowledge_Base_Index.md",
+          "00-HANDOVER_2026-08-05_Resume_Directive.md",
+          "162-BRIDGE-HARDENING_DEC-291.md"
+        ],
+        "forbidden_paths": [
+          "k2_engine.py",
+          "k3_engine.py",
+          "k4_engine.py",
+          "*_contentpack*.json",
+          "*_textlayer*.json",
+          "40-*",
+          "41-*",
+          "site/**",
+          "docs/**"
+        ]
+      },
+      "acceptance_criteria": [
+        "المدقّق يرفض كل انتقالٍ خارج آلة الحالات المنصوصة",
+        "المدقّق يرفض اختلاف TASK_QUEUE.status عن HANDOFF.status",
+        "المدقّق يرفض اختلاف next_actor عن to_actor",
+        "المدقّق يرفض زيادة iteration المخالفة للبروتوكول",
+        "المدقّق يرفض last_commit ميتاً أو يتيماً أو دائرياً",
+        "دلالة last_commit معرَّفةٌ بلا ادّعاءٍ دائري",
+        "حقنةٌ سلبيةٌ مستقلّة لكل عيب — لا حقنةٌ تجمع عدّة مخالفات",
+        "python3 gate.py أخضر · وصفر مساسٍ بالقياس أو المحتوى التفسيري"
+      ],
+      "status": "queued",
+      "next_actor": "claude",
       "iteration": 0,
       "max_iterations": 3,
       "owner_approval_required_for": [

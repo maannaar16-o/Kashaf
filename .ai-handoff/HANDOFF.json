@@ -1,89 +1,17 @@
 {
-  "protocol_version": "1.0",
-  "task_id": "KASHAF-AI-BRIDGE-DEMO-001",
-  "status": "ready_for_codex",
-  "from_actor": "claude",
-  "to_actor": "codex",
+  "protocol_version": "1.1",
+  "task_id": "KASHAF-AI-BRIDGE-HARDENING-002",
+  "status": "queued",
+  "from_actor": "owner",
+  "to_actor": "claude",
   "iteration": 0,
-  "summary": "نُفِّذت دورة التسليم كاملةً داخل النطاق المصرَّح به (.ai-handoff/ وحده). والمهمّة غرضُها اختبار الدورة، فلم يكن «مرّ المدقّق» برهاناً كافياً: جسرُ تسليمٍ لم يُختبر على فشله ادّعاءٌ لا حرس. فحُقن المدقّق بستّ حقنات فرصدها ستّاً، ثم قيس ما لا يفحصه فظهر عيبٌ واحد مسجَّلٌ في findings ولم يُصلَح لأن scripts/ خارج allowed_paths. · وقبل التسليم للمراجعة رُصد عيبٌ في هذا التسليم نفسه: `last_commit` كان يشير إلى التزامٍ يتيم خلّفه `--amend`. صُحّحت البصمة، ورُفع سببُ عدم رصدها مدقّقياً في AIB-02.",
-  "changed_files": [
-    ".ai-handoff/TASK_QUEUE.json",
-    ".ai-handoff/HANDOFF.json"
-  ],
-  "commands_run": [
-    "python3 scripts/validate_ai_handoff.py",
-    "python3 gate.py"
-  ],
-  "tests": [
-    {
-      "name": "مدقّق التسليم — الحالة الصالحة",
-      "result": "pass",
-      "detail": "PASS: 1 task(s); handoff protocol is valid"
-    },
-    {
-      "name": "حقنة ① حالةٌ خارج آلة الحالات (done)",
-      "result": "pass",
-      "detail": "رُصدت — HANDOFF.status is invalid"
-    },
-    {
-      "name": "حقنة ② فاعلٌ غير معروف (human)",
-      "result": "pass",
-      "detail": "رُصدت — HANDOFF actors are invalid"
-    },
-    {
-      "name": "حقنة ③ حقلُ الاختبارات نصٌّ لا قائمة",
-      "result": "pass",
-      "detail": "رُصدت — HANDOFF.tests must be a list"
-    },
-    {
-      "name": "حقنة ④ تسليمٌ لمهمّةٍ غير مطروحة",
-      "result": "pass",
-      "detail": "رُصدت — HANDOFF.task_id must match a queued task"
-    },
-    {
-      "name": "حقنة ⑤ دورةٌ تتجاوز الحدّ الأقصى",
-      "result": "pass",
-      "detail": "رُصدت — exceeds max_iterations"
-    },
-    {
-      "name": "حقنة ⑥ سرٌّ مسرَّبٌ في ملفّ التسليم",
-      "result": "pass",
-      "detail": "رُصدت — possible secret detected in handoff files"
-    },
-    {
-      "name": "بوابة القبول الكاملة",
-      "result": "pass",
-      "detail": "27/27 أداة · سبع بصمات حرفياً · سبع علامات · صفر انجراف وثائقي"
-    }
-  ],
-  "findings": [
-    {
-      "id": "AIB-01",
-      "severity": "medium",
-      "file": "scripts/validate_ai_handoff.py",
-      "description": "المدقّق يفحص **الشكل لا آلة الحالات**. قِيس بثلاث مخالفاتٍ معاً فمرّت جميعاً: قفزةٌ من queued إلى approved بلا in_progress · واختلافُ حالة المهمّة عن حالة التسليم · وتناقضُ next_actor مع to_actor. فالانتقال غير المشروع يمرّ، والملفّان يتناقضان بلا رصد — و«اجتياز المدقّق» يُقرأ أوسع ممّا يقيس.",
-      "acceptance_criteria": "يرفض المدقّق أي انتقالٍ خارج آلة الحالات المنصوصة في README، ويوجب تطابق status بين الملفَّين وتطابق next_actor مع to_actor — ويُختبر كلٌّ منها بحقنةٍ تسقطه.",
-      "fixed": false,
-      "why_not_fixed": "scripts/ خارج allowed_paths لهذه المهمّة (.ai-handoff/ وحده) — فالعيب يُرفع ولا يُصلَح، والنطاق يُصان."
-    },
-    {
-      "id": "AIB-02",
-      "severity": "low",
-      "file": "scripts/validate_ai_handoff.py",
-      "description": "المدقّق لا يتحقّق أن `last_commit` **التزامٌ قائمٌ في التاريخ**. ورُصد الأثر في هذا التسليم نفسه: كُتبت البصمة قبل `git commit --amend`، فبقيت تشير إلى **التزامٍ يتيم** خلّفه التعديل — موجودٌ في المستودع وليس في تاريخ `main`. **فالمراجع يتبع بصمةً لا تقود إلى شيء**، والمدقّق يمرّ لأنه يفحص أن الحقل نصٌّ لا أنه صادق.",
-      "acceptance_criteria": "يرفض المدقّق `last_commit` لا يُحلّ إلى التزامٍ بالغٍ من الفرع العامل (`git merge-base --is-ancestor`) — ويُختبر بحقنة بصمةٍ يتيمة.",
-      "fixed": false,
-      "why_not_fixed": "scripts/ خارج allowed_paths — والبصمة نفسها صُحّحت داخل النطاق."
-    }
-  ],
+  "summary": "مهمّةٌ أدخلها المالك بأمرٍ صريح. لم يبدأ التنفيذ بعد.",
+  "changed_files": [],
+  "commands_run": [],
+  "tests": [],
+  "findings": [],
   "blockers": [],
-  "decisions_needed": [
-    {
-      "id": "AIB-D1",
-      "question": "إصلاح AIB-01 يمسّ scripts/ و.github/workflows — أيُفتح له بندٌ في الطابور بنطاقٍ موسَّع، أم يُترك حدّاً مُعلَناً في README؟",
-      "for_actor": "owner"
-    }
-  ],
-  "last_commit": "156c4c9",
+  "decisions_needed": [],
+  "last_commit": null,
   "updated_at": "2026-08-16T00:00:00Z"
 }
